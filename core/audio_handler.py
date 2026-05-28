@@ -1,17 +1,31 @@
 import logging
 from typing import Optional
+from dataclasses import dataclass
 
 import pyttsx3
 import speech_recognition as sr
-from config import LISTEN_TIMEOUT_SECONDS, LISTEN_PHRASE_TIME_LIMIT
+from config import LISTEN_TIMEOUT_SECONDS, LISTEN_PHRASE_TIME_LIMIT, TTS_RATE, TTS_VOLUME
+
+class AudioResult:
+    SUCCESS = "success"
+    TIMEOUT = "timeout"
+    UNINTELLIGIBLE = "unintelligible"
+    NETWORK_ERROR = "network_error"
+    HARDWARE_ERROR = "hardware_error"
+
+@dataclass
+class AudioInputResult:
+    text: Optional[str]
+    status: str
+    error_message: Optional[str] = None
 
 class AudioHandler:
-    \"\"\"
+    """
     Gerencia a captura de áudio (Speech-to-Text) e a síntese de voz (Text-to-Speech).
 
     Esta classe encapsula as bibliotecas SpeechRecognition e pyttsx3, fornecendo
     métodos limpos para falar e ouvir.
-    \"\"\"
+    """
 
     def __init__(self):
         logging.info("Inicializando módulo de áudio...")
@@ -19,9 +33,10 @@ class AudioHandler:
         # Text-to-Speech Engine
         try:
             self._tts_engine = pyttsx3.init()
-            # Ajuste opcional de velocidade e volume pode ser feito aqui
-            # self._tts_engine.setProperty('rate', 150) 
-            logging.info("Motor de síntese de voz (TTS) inicializado.")
+            # Ajuste de velocidade e volume configurados para idosos
+            self._tts_engine.setProperty('rate', TTS_RATE)
+            self._tts_engine.setProperty('volume', TTS_VOLUME)
+            logging.info(f"Motor de síntese de voz (TTS) inicializado (Velocidade: {TTS_RATE}, Volume: {TTS_VOLUME}).")
         except Exception as e:
             logging.critical(f"Falha ao inicializar motor TTS: {e}", exc_info=True)
             raise
@@ -42,23 +57,23 @@ class AudioHandler:
         logging.info("Módulo de áudio pronto.")
 
     def _adjust_for_ambient_noise(self):
-        \"\"\"Calibra o reconhecedor de voz baseando-se no ruído ambiente atual.\"\"\"
+        """Calibra o reconhecedor de voz baseando-se no ruído ambiente atual."""
         try:
             with self._microphone as source:
-                logging.info("Calibrando microfone para o ruído ambiente. Aguarde 2 segundos...")
-                self._recognizer.adjust_for_ambient_noise(source, duration=2)
+                logging.info("Calibrando microfone para o ruído ambiente. Aguarde 1 segundo...")
+                self._recognizer.adjust_for_ambient_noise(source, duration=1)
                 logging.info("Calibração concluída.")
         except Exception as e:
             logging.error(f"Erro durante a calibração do ruído ambiente: {e}")
             raise
 
     def speak(self, text: str):
-        \"\"\"
+        """
         Converte texto em fala e reproduz no dispositivo de saída padrão.
 
         Args:
             text: A string a ser sintetizada.
-        \"\"\"
+        """
         if not text:
             return
             
@@ -70,13 +85,13 @@ class AudioHandler:
         except Exception as e:
             logging.error(f"Erro durante a síntese/reprodução de voz: {e}", exc_info=True)
 
-    def listen(self) -> Optional[str]:
-        \"\"\"
+    def listen(self) -> AudioInputResult:
+        """
         Ativa o microfone, captura o áudio e converte para texto.
 
         Returns:
-            O texto transcrito em minúsculas, ou None se falhar/não houver fala.
-        \"\"\"
+            Um objeto AudioInputResult contendo o status e o texto transcrito em caso de sucesso.
+        """
         logging.info("Microfone aberto. Aguardando fala...")
         with self._microphone as source:
             try:
@@ -91,17 +106,26 @@ class AudioHandler:
                 # Utiliza a API do Google (embutida na biblioteca) para pt-BR
                 text = self._recognizer.recognize_google(audio, language='pt-BR')
                 logging.info(f"Transcrição bem-sucedida: '{text}'")
-                return text.lower()
+                return AudioInputResult(text=text.lower(), status=AudioResult.SUCCESS)
 
             except sr.WaitTimeoutError:
                 logging.warning("Timeout: Nenhum som captado dentro do limite de tempo.")
-                return None
+                return AudioInputResult(text=None, status=AudioResult.TIMEOUT)
             except sr.UnknownValueError:
                 logging.warning("Áudio ininteligível: A fala não pôde ser transcrita.")
-                return None
+                return AudioInputResult(text=None, status=AudioResult.UNINTELLIGIBLE)
             except sr.RequestError as e:
                 logging.error(f"Erro no serviço de reconhecimento de fala (falha de rede?): {e}")
-                return None
+                return AudioInputResult(text=None, status=AudioResult.NETWORK_ERROR, error_message=str(e))
             except Exception as e:
                 logging.critical(f"Erro crítico e inesperado durante a escuta: {e}", exc_info=True)
-                return None
+                return AudioInputResult(text=None, status=AudioResult.HARDWARE_ERROR, error_message=str(e))
+
+    def contains_sos_keywords(self, text: str) -> bool:
+        """
+        Verifica se o texto contém palavras-chave críticas de emergência (Spotter de Voz).
+        """
+        if not text:
+            return False
+        sos_keywords = ["socorro", "ajuda", "me ajuda", "eu caí", "passando mal", "emergência", "socorram"]
+        return any(keyword in text.lower() for keyword in sos_keywords)

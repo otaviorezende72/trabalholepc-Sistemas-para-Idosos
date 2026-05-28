@@ -75,9 +75,6 @@ target/
 profile_default/
 ipython_config.py
 
-# pyenv
-.python-version
-
 # celery
 celerybeat-schedule
 celerybeat.pid
@@ -99,4 +96,5 @@ venv.bak/
 
 # Log files
 *.log
-aurora_assistant.log
+lyra_assistant.log
+backend.db

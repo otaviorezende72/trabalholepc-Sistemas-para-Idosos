@@ -4,14 +4,14 @@ from utils.logging_config import setup_logging
 from app import Application
 
 def main():
-    \"\"\"
-    Ponto de entrada (Entrypoint) do sistema Aurora.
+    """
+    Ponto de entrada (Entrypoint) do sistema Lyra.
     
     Responsável apenas por:
     1. Inicializar infraestrutura basal (ex: Logging).
     2. Instanciar e rodar a aplicação principal.
     3. Capturar interrupções brutas (ex: Ctrl+C) graciosamente.
-    \"\"\"
+    """
     # 1. Setup inicial
     setup_logging()
 
@@ -24,7 +24,7 @@ def main():
     except Exception as e:
         logging.critical(f"Falha não tratada no nível principal: {e}", exc_info=True)
     finally:
-        logging.info("Sistema Aurora finalizado graciosamente.")
+        logging.info("Sistema Lyra finalizado graciosamente.")
         sys.exit(0)
 
 if __name__ == "__main__":

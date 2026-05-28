@@ -2,3 +2,6 @@ ollama
 speechrecognition
 pyttsx3
 pyaudio
+python-dotenv
+websocket-client
+requests
