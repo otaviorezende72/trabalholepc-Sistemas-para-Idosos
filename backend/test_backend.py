@@ -124,9 +124,11 @@ class TestBackendAPI(unittest.TestCase):
         except Exception:
             pass # Esperado
 
-        # Conecta o motor e o mobile simulados
-        with self.client.websocket_connect("/ws?client_type=motor") as ws_motor:
-            with self.client.websocket_connect("/ws?client_type=mobile") as ws_mobile:
+        # Conecta o motor e o mobile simulados usando instâncias independentes do TestClient
+        client_motor = TestClient(app)
+        client_mobile = TestClient(app)
+        with client_motor.websocket_connect("/ws?client_type=motor") as ws_motor:
+            with client_mobile.websocket_connect("/ws?client_type=mobile") as ws_mobile:
                 
                 # Motor envia sinal de SOS
                 sos_message = {"event": "SOS_TRIGGERED", "data": {"reason": "silence"}}

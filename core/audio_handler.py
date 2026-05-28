@@ -1,10 +1,16 @@
 import logging
+import os
+import asyncio
 from typing import Optional
 from dataclasses import dataclass
 
-import pyttsx3
+# Desativa o banner de boas-vindas do pygame no stdout
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+import pygame
 import speech_recognition as sr
-from config import LISTEN_TIMEOUT_SECONDS, LISTEN_PHRASE_TIME_LIMIT, TTS_RATE, TTS_VOLUME
+import edge_tts
+
+from config import LISTEN_TIMEOUT_SECONDS, LISTEN_PHRASE_TIME_LIMIT
 
 class AudioResult:
     SUCCESS = "success"
@@ -22,23 +28,19 @@ class AudioInputResult:
 class AudioHandler:
     """
     Gerencia a captura de áudio (Speech-to-Text) e a síntese de voz (Text-to-Speech).
-
-    Esta classe encapsula as bibliotecas SpeechRecognition e pyttsx3, fornecendo
-    métodos limpos para falar e ouvir.
+    Utiliza edge-tts para síntese neural realista e pygame.mixer para reprodução thread-safe.
     """
 
     def __init__(self):
         logging.info("Inicializando módulo de áudio...")
         
-        # Text-to-Speech Engine
+        # Inicializa o mixer do pygame para reprodução de áudio
         try:
-            self._tts_engine = pyttsx3.init()
-            # Ajuste de velocidade e volume configurados para idosos
-            self._tts_engine.setProperty('rate', TTS_RATE)
-            self._tts_engine.setProperty('volume', TTS_VOLUME)
-            logging.info(f"Motor de síntese de voz (TTS) inicializado (Velocidade: {TTS_RATE}, Volume: {TTS_VOLUME}).")
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+            logging.info("Motor de síntese de voz (Pygame Mixer) inicializado com sucesso.")
         except Exception as e:
-            logging.critical(f"Falha ao inicializar motor TTS: {e}", exc_info=True)
+            logging.critical(f"Falha ao inicializar Pygame Mixer: {e}", exc_info=True)
             raise
 
         # Speech-to-Text Engine
@@ -67,9 +69,23 @@ class AudioHandler:
             logging.error(f"Erro durante a calibração do ruído ambiente: {e}")
             raise
 
+    def _play_audio_file(self, file_path: str):
+        """Reproduz um arquivo de áudio usando pygame de forma thread-safe."""
+        import time
+        try:
+            pygame.mixer.music.load(file_path)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                time.sleep(0.05)
+            pygame.mixer.music.unload()
+        except Exception as e:
+            logging.error(f"Erro na reprodução do arquivo de áudio {file_path}: {e}")
+            raise
+
     def speak(self, text: str):
         """
-        Converte texto em fala e reproduz no dispositivo de saída padrão.
+        Converte texto em fala usando edge-tts e reproduz no dispositivo de saída padrão.
+        Utiliza a voz pt-BR-FranciscaNeural para uma experiência de fala neural e realista.
 
         Args:
             text: A string a ser sintetizada.
@@ -78,12 +94,40 @@ class AudioHandler:
             return
             
         logging.info(f"Sintetizando voz: '{text}'")
+        
+        import tempfile
+        
+        # Cria arquivo temporário de forma segura
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".mp3")
+        os.close(temp_fd)
+        
         try:
-            self._tts_engine.say(text)
-            self._tts_engine.runAndWait()
-            logging.info("Reprodução de áudio concluída.")
+            async def _generate_audio():
+                communicate = edge_tts.Communicate(text, "pt-BR-FranciscaNeural")
+                await communicate.save(temp_path)
+                
+            asyncio.run(_generate_audio())
+            self._play_audio_file(temp_path)
+            logging.info("Reprodução de áudio neural concluída com sucesso.")
         except Exception as e:
-            logging.error(f"Erro durante a síntese/reprodução de voz: {e}", exc_info=True)
+            logging.error(f"Erro durante a geração/reprodução de voz neural (edge-tts): {e}", exc_info=True)
+            # Fallback de Imersão (Zero Robôs)
+            logging.info("Iniciando reprodução de fallback (sem internet)...")
+            fallback_file = "assets/sem_internet.mp3"
+            if os.path.exists(fallback_file):
+                try:
+                    self._play_audio_file(fallback_file)
+                except Exception as fb_err:
+                    logging.error(f"Erro ao reproduzir áudio de fallback '{fallback_file}': {fb_err}", exc_info=True)
+            else:
+                logging.warning(f"Arquivo de fallback '{fallback_file}' não encontrado.")
+        finally:
+            # Limpeza do arquivo temporário
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except Exception as rm_err:
+                logging.error(f"Erro ao remover arquivo temporário '{temp_path}': {rm_err}")
 
     def listen(self) -> AudioInputResult:
         """

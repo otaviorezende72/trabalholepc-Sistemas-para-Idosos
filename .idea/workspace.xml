@@ -4,20 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d15b36e1-caaa-419d-aab4-f4f8057bc0e2" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/tests/test_lyra.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/aurora_assistant.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/ai_processor.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/ai_processor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/audio_handler.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/audio_handler.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/emergency_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/emergency_manager.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/logging_config.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/logging_config.py" afterDir="false" />
-    </list>
+    <list default="true" id="d15b36e1-caaa-419d-aab4-f4f8057bc0e2" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />

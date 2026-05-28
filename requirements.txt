@@ -1,6 +1,7 @@
 ollama
 speechrecognition
-pyttsx3
+edge-tts
+pygame
 pyaudio
 python-dotenv
 websocket-client
