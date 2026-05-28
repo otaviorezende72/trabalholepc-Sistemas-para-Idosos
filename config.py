@@ -5,15 +5,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Inteligência Artificial
-AI_MODEL = os.getenv("AI_MODEL", "llama3")
+AI_MODEL = os.getenv("AI_MODEL", "qwen2.5:3b")
 MAX_HISTORY_TURNS = int(os.getenv("MAX_HISTORY_TURNS", "10"))
 SYSTEM_PROMPT = os.getenv(
     "SYSTEM_PROMPT",
-    "Você é 'Lyra', uma assistente de saúde virtual amigável que cuida de "
-    "idosos que moram sozinhos. Regra de Ouro: Suas respostas devem ser "
-    "extremamente curtas (no máximo 2 frases breves), diretas, carinhosas e "
-    "fáceis de entender. Nunca use jargões técnicos. Responda sempre em "
-    "português do Brasil."
+    "Você é a Lyra, uma amiga e cuidadora virtual extremamente calorosa, empática e atenciosa. "
+    "Sua missão é conversar com o usuário de forma natural, como um ser humano faria. "
+    "Regra de Ouro: Use frases curtas, fáceis de entender e acolhedoras. Responda sempre em português do Brasil."
 )
 
 # Áudio e Escuta

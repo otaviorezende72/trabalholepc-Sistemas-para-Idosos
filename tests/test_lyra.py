@@ -195,9 +195,9 @@ class TestAIProcessorMemory(unittest.TestCase):
         mock_requests_get.assert_called_with(f"{config.API_URL}/settings", timeout=2.0)
 
         # Verifica se o system prompt inicial foi atualizado com o profile_summary
-        self.assertIn("Perfil e preferências do idoso:", processor._history[0]['content'])
-        self.assertIn("- Gosta de café", processor._history[0]['content'])
-        self.assertIn("- Tem um gato chamado Mimi", processor._history[0]['content'])
+        self.assertIn("Aqui estão os fatos que você lembra sobre a vida e os gostos dele:", processor._history[0]['content'])
+        self.assertIn("Gosta de café", processor._history[0]['content'])
+        self.assertIn("Tem um gato chamado Mimi", processor._history[0]['content'])
 
     @patch('core.ai_processor.requests.get')
     @patch('core.ai_processor.ollama.chat')
@@ -217,8 +217,8 @@ class TestAIProcessorMemory(unittest.TestCase):
         response = processor.get_response("Oi Lyra")
 
         # Verifica se o system prompt inicial utilizou o fallback do config local
-        self.assertIn("Perfil e preferências do idoso:", processor._history[0]['content'])
-        self.assertIn("- Gosta de passear de tarde", processor._history[0]['content'])
+        self.assertIn("Aqui estão os fatos que você lembra sobre a vida e os gostos dele:", processor._history[0]['content'])
+        self.assertIn("Gosta de passear de tarde", processor._history[0]['content'])
 
     def test_merge_profile_summaries(self):
         processor = AIProcessor()
@@ -227,8 +227,8 @@ class TestAIProcessorMemory(unittest.TestCase):
         
         merged = processor._merge_profile_summaries(old_summary, new_summary)
         
-        # Deve remover duplicatas de forma case-insensitive e manter no formato "- Item"
-        expected = "- Gosta de futebol\n- Gosta de ler\n- Tem 2 gatos"
+        # Deve remover duplicatas de forma case-insensitive e manter no formato "* Item"
+        expected = "* Gosta de futebol\n* Gosta de ler\n* Tem 2 gatos"
         self.assertEqual(merged, expected)
 
     @patch('core.ai_processor.requests.put')
@@ -274,7 +274,7 @@ class TestAIProcessorMemory(unittest.TestCase):
             "checkin_interval_hours": 12,
             "emergency_contact_name": "Maria",
             "emergency_contact_phone": "+55 11 99999-9999",
-            "profile_summary": "- Gosta de ler\n- Gosta de chá de camomila"
+            "profile_summary": "* Gosta de ler\n* Gosta de chá de camomila"
         }
         mock_requests_put.assert_called_with(
             f"{config.API_URL}/settings",
@@ -283,7 +283,7 @@ class TestAIProcessorMemory(unittest.TestCase):
         )
         
         # Verifica se atualizou a variável global no config
-        self.assertEqual(config.PROFILE_SUMMARY, "- Gosta de ler\n- Gosta de chá de camomila")
+        self.assertEqual(config.PROFILE_SUMMARY, "* Gosta de ler\n* Gosta de chá de camomila")
 
     @patch('core.ai_processor.requests.put')
     @patch('core.ai_processor.requests.get')

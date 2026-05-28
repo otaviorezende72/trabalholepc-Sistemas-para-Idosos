@@ -189,8 +189,10 @@ class Application:
         """Consulta o LLM Ollama para analisar a resposta e classificar o status de ingestão."""
         logging.info("Consultando o LLM para classificação do remédio...")
         system_prompt = (
-            "O usuário respondeu a pergunta sobre o remédio. Analise o texto e retorne "
-            "APENAS 'SIM' se ele tomou, 'NAO' se ele não tomou, ou 'DESCONHECIDO' se a resposta for confusa."
+            "Você é um validador lógico de texto em português. Analise a resposta do idoso "
+            "sobre ter tomado o remédio e responda APENAS com uma das seguintes palavras: "
+            "'SIM', 'NAO' ou 'DESCONHECIDO'. Não adicione pontuação, saudações ou explicações. "
+            "Responda apenas a palavra pura."
         )
         messages = [
             {"role": "system", "content": system_prompt},

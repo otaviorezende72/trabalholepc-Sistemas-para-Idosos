@@ -94,9 +94,16 @@ class AIProcessor:
             profile_summary = config.PROFILE_SUMMARY
 
         # 2. Atualizar dinamicamente a mensagem de sistema inicial com o perfil
-        system_prompt = config.SYSTEM_PROMPT
         if profile_summary:
-            system_prompt += f"\n\nPerfil e preferências do idoso:\n{profile_summary}"
+            system_prompt = (
+                "Você é a Lyra, uma amiga e cuidadora virtual extremamente calorosa, empática e atenciosa. "
+                "Sua missão é conversar com o usuário de forma natural, como um ser humano faria. "
+                "Use frases curtas, fáceis de entender e acolhedoras. Aqui estão os fatos que você lembra sobre "
+                f"a vida e os gostos dele:\n{profile_summary}\n"
+                "Use essas informações sutilmente para demonstrar proximidade durante o papo. Responda sempre em português do Brasil."
+            )
+        else:
+            system_prompt = config.SYSTEM_PROMPT
         
         # Garante que temos pelo menos a mensagem de sistema no início
         if self._history and self._history[0]['role'] == 'system':
@@ -153,7 +160,7 @@ class AIProcessor:
                 seen.add(line_lower)
                 merged_lines.append(line)
 
-        return "\n".join(f"- {line}" for line in merged_lines)
+        return "\n".join(f"* {line}" for line in merged_lines)
 
     def _extract_and_update_memory(self, recent_history_slice: List[Dict[str, str]]):
         """
@@ -169,8 +176,8 @@ class AIProcessor:
         extraction_prompt = (
             "Você é um assistente de extração de informações sobre idosos.\n"
             "Analise o diálogo abaixo entre um idoso e a assistente virtual Lyra e extraia novos fatos sobre o idoso "
-            "(como gostos, preferences, fatos da vida, rotina, nomes de parentes ou animais de estimação, etc.).\n"
-            "Gere a saída EXCLUSIVAMENTE como uma lista de tópicos curtos (um por linha), iniciando com '- ' ou '* '.\n"
+            "(como gostos, preferências, fatos da vida, rotina, nomes de parentes ou animais de estimação, etc.).\n"
+            "Gere a saída EXCLUSIVAMENTE como uma lista de tópicos curtos (um por linha), iniciando com '* ' (formato Markdown).\n"
             "Se nenhum fato novo relevante for extraído do diálogo, responda APENAS com a palavra: VAZIO\n"
             "Não adicione nenhuma explicação, introdução ou comentário. Seja conciso e direto.\n\n"
             "Diálogo:\n"
