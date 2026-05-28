@@ -1,73 +1,61 @@
 import * as Speech from 'expo-speech';
-import { Audio } from 'expo-av';
+import { Platform, PermissionsAndroid } from 'react-native';
 
-// ── Text-to-Speech (lyra fala) ──────────────────────────────────────────────
+// ── TTS — Lyra fala ───────────────────────────────────────────────────────────
 
-export const falar = (texto, opcoes = {}) => {
+export const falar = (texto) => {
   return new Promise((resolve) => {
+    Speech.stop();
     Speech.speak(texto, {
       language: 'pt-BR',
-      rate: 0.85,      // um pouco mais devagar para idosos
-      pitch: 1.0,
+      rate: 0.85,
+      pitch: 1.05,
       onDone: resolve,
-      onError: resolve, // mesmo em erro, resolve para não travar
-      ...opcoes,
+      onError: resolve,
     });
   });
 };
 
-export const pararFala = () => {
-  Speech.stop();
-};
+export const pararFala = () => Speech.stop();
 
-export const estaFalando = async () => {
-  return await Speech.isSpeakingAsync();
-};
-
-// ── Permissão de Microfone ────────────────────────────────────────────────────
+// ── Permissão de microfone ────────────────────────────────────────────────────
 
 export const pedirPermissaoMicrofone = async () => {
-  const { status } = await Audio.requestPermissionsAsync();
-  return status === 'granted';
+  if (Platform.OS === 'android') {
+    try {
+      const resultado = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        {
+          title: 'Permissão de Microfone',
+          message: 'O Lyra precisa acessar o microfone para ouvir você.',
+          buttonPositive: 'Permitir',
+          buttonNegative: 'Cancelar',
+        }
+      );
+      return resultado === PermissionsAndroid.RESULTS.GRANTED;
+    } catch {
+      return false;
+    }
+  }
+  return true; // iOS pede permissão automaticamente
 };
 
-// ── Gravação de Áudio (para enviar ao backend) ─────────────────────────────────
-// O reconhecimento de fala (STT) é feito pelo Google Speech Recognition
-// através da API nativa do dispositivo
+// ── Confirmação e negação por voz ─────────────────────────────────────────────
 
-let gravacao = null;
-
-export const iniciarGravacao = async () => {
-  try {
-    const temPermissao = await pedirPermissaoMicrofone();
-    if (!temPermissao) throw new Error('Sem permissão de microfone');
-
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-    });
-
-    gravacao = new Audio.Recording();
-    await gravacao.prepareToRecordAsync(
-      Audio.RecordingOptionsPresets.HIGH_QUALITY
-    );
-    await gravacao.startAsync();
-    return true;
-  } catch (erro) {
-    console.error('Erro ao iniciar gravação:', erro);
-    return false;
-  }
+export const confirmarPorVoz = async (medicamentoId) => {
+  const { confirmarMedicamento } = await import('./api');
+  await confirmarMedicamento(medicamentoId);
+  await falar('Ótimo! Registrado. Cuide-se bem!');
 };
 
-export const pararGravacao = async () => {
-  try {
-    if (!gravacao) return null;
-    await gravacao.stopAndUnloadAsync();
-    const uri = gravacao.getURI();
-    gravacao = null;
-    return uri; // caminho do arquivo de áudio gravado
-  } catch (erro) {
-    console.error('Erro ao parar gravação:', erro);
-    return null;
-  }
+export const negarPorVoz = async () => {
+  await falar('Tudo bem. Lembre-se de tomar assim que puder, combinado?');
+};
+
+// ── SOS por voz ───────────────────────────────────────────────────────────────
+
+export const acionarSosPorVoz = async () => {
+  const { criarAlerta } = await import('./api');
+  await criarAlerta('SOS');
+  await falar('Entendido. Acionando emergência imediatamente. Sua família foi avisada.');
 };

@@ -1,89 +1,79 @@
 import axios from 'axios';
 
-// ⚠️ IMPORTANTE: troque pelo IP do seu computador onde o FastAPI roda
-// Se estiver testando no emulador Android: use 10.0.2.2
-// Se estiver testando no celular físico: use o IP da sua rede (ex: 192.168.1.100)
-const BASE_URL = 'http://10.0.2.2:8000';
+// ⚠️ Troque pelo IP do seu computador onde o FastAPI roda
+// Celular físico na mesma rede Wi-Fi: use o IP local (ex: 192.168.1.100)
+// Emulador Android: use 10.0.2.2
+export const BASE_URL = 'http://172.20.208.1:8000';
+export const WS_URL = `ws://172.20.208.1:8000/ws`;
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 30000, // 30 segundos (IA pode demorar)
+  timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ── Chat / Voz ────────────────────────────────────────────────────────────────
-export const enviarMensagem = async (idosoId, mensagem, fcmToken = null) => {
-  const { data } = await api.post('/api/chat', {
-    idoso_id: idosoId,
-    mensagem,
-    fcm_token: fcmToken,
-  });
-  return data; // { resposta, eh_emergencia, confianca_emergencia }
-};
-
-// ── SOS ───────────────────────────────────────────────────────────────────────
-export const acionarSos = async (idosoId, motivo = 'botao_panico') => {
-  const { data } = await api.post('/api/sos', {
-    idoso_id: idosoId,
-    motivo,
-  });
-  return data;
-};
-
 // ── Medicamentos ──────────────────────────────────────────────────────────────
-export const listarMedicamentos = async (idosoId) => {
-  const { data } = await api.get(`/api/medications/${idosoId}`);
+
+// GET /medications
+export const listarMedicamentos = async () => {
+  const { data } = await api.get('/medications');
+  return data; // [{ id, name, dosage, time, active, status, confirmed_at }]
+};
+
+// POST /medications
+export const criarMedicamento = async (name, dosage, time) => {
+  const { data } = await api.post('/medications', { name, dosage, time, active: true });
   return data;
 };
 
-export const criarMedicamento = async (idosoId, nome, dosagem, horarios) => {
-  const { data } = await api.post('/api/medications', {
-    idoso_id: idosoId,
-    nome,
-    dosagem,
-    horarios,
-  });
+// PUT /medications/{id}
+export const atualizarMedicamento = async (id, payload) => {
+  const { data } = await api.put(`/medications/${id}`, payload);
   return data;
 };
 
+// DELETE /medications/{id}
 export const removerMedicamento = async (id) => {
-  const { data } = await api.delete(`/api/medications/${id}`);
-  return data;
+  await api.delete(`/medications/${id}`);
 };
 
-export const confirmarMedicamento = async (medicamentoId, idosoId, horario) => {
-  const { data } = await api.post('/api/medications/confirm', {
-    medicamento_id: medicamentoId,
-    idoso_id: idosoId,
-    horario,
-  });
-  return data;
-};
-
-// ── Perfis ────────────────────────────────────────────────────────────────────
-export const criarPerfilIdoso = async (nome, familiarId, checkinInicio, checkinFim) => {
-  const { data } = await api.post('/api/profiles/idoso', {
-    nome,
-    familiar_id: familiarId,
-    checkin_hora_inicio: checkinInicio,
-    checkin_hora_fim: checkinFim,
-  });
-  return data;
-};
-
-export const buscarPerfilIdoso = async (familiarId) => {
-  const { data } = await api.get(`/api/profiles/idoso/${familiarId}`);
+// PUT /medications/{id}/confirm — idoso confirmou que tomou
+export const confirmarMedicamento = async (id) => {
+  const { data } = await api.put(`/medications/${id}/confirm`);
   return data;
 };
 
 // ── Alertas ───────────────────────────────────────────────────────────────────
-export const listarAlertas = async (idosoId) => {
-  const { data } = await api.get(`/api/alerts/${idosoId}`);
+
+// GET /alerts
+export const listarAlertas = async (skip = 0, limit = 50) => {
+  const { data } = await api.get('/alerts', { params: { skip, limit } });
+  return data; // [{ id, type, resolved, timestamp, resolved_at }]
+};
+
+// POST /alerts
+export const criarAlerta = async (type) => {
+  const { data } = await api.post('/alerts', { type, resolved: false });
   return data;
 };
 
-export const marcarAlertaVisualizado = async (id) => {
-  const { data } = await api.patch(`/api/alerts/${id}/visualizar`);
+// PUT /alerts/{id}/resolve
+export const resolverAlerta = async (id) => {
+  const { data } = await api.put(`/alerts/${id}/resolve`);
+  return data;
+};
+
+// ── Configurações do Idoso ────────────────────────────────────────────────────
+
+// GET /elder-settings
+export const buscarConfiguracoes = async () => {
+  const { data } = await api.get('/elder-settings');
+  return data;
+};
+
+// PUT /elder-settings
+export const salvarConfiguracoes = async (payload) => {
+  const { data } = await api.put('/elder-settings', payload);
   return data;
 };
 

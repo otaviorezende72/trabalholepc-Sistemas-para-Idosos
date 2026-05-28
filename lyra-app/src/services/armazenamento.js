@@ -1,37 +1,49 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Chaves de armazenamento
-const CHAVES = {
-  MODO: 'lyra_modo',           // 'FAMILIAR' ou 'IDOSO'
-  FAMILIAR_ID: 'lyra_familiar_id',
-  IDOSO_ID: 'lyra_idoso_id',
-  ONBOARDING: 'lyra_onboarding',
+// Dados permanentes da conta (nunca apagados no logout)
+const CONTA = {
+  USUARIO: 'lyra_conta_usuario',
+  SENHA:   'lyra_conta_senha',
+  CODIGO:  'lyra_conta_codigo',
 };
 
-// ── Salvar ────────────────────────────────────────────────────────────────────
-
-export const salvarModo = (modo) =>
-  AsyncStorage.setItem(CHAVES.MODO, modo);
-
-export const salvarFamiliarId = (id) =>
-  AsyncStorage.setItem(CHAVES.FAMILIAR_ID, id);
-
-export const salvarIdosoId = (id) =>
-  AsyncStorage.setItem(CHAVES.IDOSO_ID, id);
-
-export const concluirOnboarding = () =>
-  AsyncStorage.setItem(CHAVES.ONBOARDING, 'true');
-
-// ── Ler ───────────────────────────────────────────────────────────────────────
-
-export const lerModo = () => AsyncStorage.getItem(CHAVES.MODO);
-export const lerFamiliarId = () => AsyncStorage.getItem(CHAVES.FAMILIAR_ID);
-export const lerIdosoId = () => AsyncStorage.getItem(CHAVES.IDOSO_ID);
-export const lerOnboarding = async () => {
-  const val = await AsyncStorage.getItem(CHAVES.ONBOARDING);
-  return val === 'true';
+// Dados de sessão (apagados no logout)
+const SESSAO = {
+  MODO: 'lyra_sessao_modo',
 };
 
-// ── Limpar sessão ─────────────────────────────────────────────────────────────
+// ── Conta (permanente) ────────────────────────────────────────────────────────
 
-export const limparSessao = () => AsyncStorage.multiRemove(Object.values(CHAVES));
+export const salvarConta = async (usuario, senha, codigo) => {
+  await AsyncStorage.multiSet([
+    [CONTA.USUARIO, usuario],
+    [CONTA.SENHA,   senha],
+    [CONTA.CODIGO,  codigo],
+  ]);
+};
+
+export const lerConta = async () => {
+  const pares = await AsyncStorage.multiGet([CONTA.USUARIO, CONTA.SENHA, CONTA.CODIGO]);
+  return {
+    usuario: pares[0][1],
+    senha:   pares[1][1],
+    codigo:  pares[2][1],
+  };
+};
+
+export const contaExiste = async () => {
+  const usuario = await AsyncStorage.getItem(CONTA.USUARIO);
+  return !!usuario;
+};
+
+// ── Sessão (temporária) ───────────────────────────────────────────────────────
+
+export const salvarModo = (modo) => AsyncStorage.setItem(SESSAO.MODO, modo);
+export const lerModo = () => AsyncStorage.getItem(SESSAO.MODO);
+
+export const encerrarSessao = () => AsyncStorage.removeItem(SESSAO.MODO);
+
+// ── Gerador de código ─────────────────────────────────────────────────────────
+
+export const gerarCodigo = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();

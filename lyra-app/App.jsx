@@ -1,47 +1,39 @@
 import 'react-native-gesture-handler';
 import React, { useState, useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
+import { CORES } from './src/theme';
+import { lerModo } from './src/services/armazenamento';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import FamiliarScreen from './src/screens/FamiliarScreen';
 import IdosoScreen from './src/screens/IdosoScreen';
-import { lerModo, lerOnboarding } from './src/services/armazenamento';
 
 const Stack = createStackNavigator();
 
 export default function App() {
-  const [telaInicial, setTelaInicial] = useState(null); // null = carregando
-  const [carregando, setCarregando] = useState(true);
+  const [telaInicial, setTelaInicial] = useState(null);
 
   useEffect(() => {
-    determinarTelaInicial();
+    determinarTela();
   }, []);
 
-  const determinarTelaInicial = async () => {
+  const determinarTela = async () => {
     try {
-      const onboardingConcluido = await lerOnboarding();
-      if (!onboardingConcluido) {
-        setTelaInicial('Onboarding');
-        return;
-      }
-
       const modo = await lerModo();
-      setTelaInicial(modo === 'IDOSO' ? 'Idoso' : 'Familiar');
-    } catch (e) {
+      if (modo === 'IDOSO') setTelaInicial('Idoso');
+      else if (modo === 'FAMILIAR') setTelaInicial('Familiar');
+      else setTelaInicial('Onboarding');
+    } catch {
       setTelaInicial('Onboarding');
-    } finally {
-      setCarregando(false);
     }
   };
 
-  // Tela de carregamento inicial
-  if (carregando || !telaInicial) {
+  if (!telaInicial) {
     return (
-      <View style={estilos.loading}>
-        <ActivityIndicator size="large" color="#1565C0" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: CORES.secundaria }}>
+        <ActivityIndicator size="large" color={CORES.primaria} />
       </View>
     );
   }
@@ -49,10 +41,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <NavigationContainer>
-        <Stack.Navigator
-          initialRouteName={telaInicial}
-          screenOptions={{ headerShown: false }} // sem barra de título padrão
-        >
+        <Stack.Navigator initialRouteName={telaInicial} screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="Familiar" component={FamiliarScreen} />
           <Stack.Screen name="Idoso" component={IdosoScreen} />
@@ -61,12 +50,3 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
-
-const estilos = StyleSheet.create({
-  loading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F0F4FF',
-  },
-});
