@@ -1,42 +1,46 @@
-// Paleta de cores do Lyra — baseada no design verde escuro
+// src/theme.js
 export const CORES = {
-  primaria: '#0D6E5E',       // verde escuro principal
-  primariaEscura: '#094E43', // hover/pressed
-  primariaClara: '#E8F5F2',  // backgrounds suaves
-  secundaria: '#F5F5F5',     // fundo geral
+  // Sua nova identidade
+  primaria: '#0D6E5E',       // Verde escuro principal
+  primariaEscura: '#094E43', // Hover/pressed
+  primariaClara: '#E8F5F2',  // Backgrounds suaves
+  secundaria: '#F5F5F5',     // Fundo geral do app
+  
+  // Base e Textos
   branco: '#FFFFFF',
-  texto: '#1A1A1A',
-  textoSecundario: '#6B7280',
-  borda: '#E5E7EB',
-  erro: '#DC2626',
-  erroClaro: '#FEE2E2',
-  sucesso: '#16A34A',
-  sucessoClaro: '#DCFCE7',
-  alerta: '#D97706',
+  texto: '#1A212A',
+  textoSecundario: '#8D9CAE',
+  borda: '#E2E8F0',
+  
+  // Status (Mantidos para alertas e feedbacks)
+  sucesso: '#10B981',
+  sucessoClaro: '#D1FAE5',
+  alerta: '#F59E0B',
   alertaClaro: '#FEF3C7',
-  sos: '#DC2626',
+  erro: '#EF4444',
+  sos: '#EF4444',
 };
 
 export const SOMBRA = {
   pequena: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 2,
   },
   media: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 5,
   },
   grande: {
-    shadowColor: '#0D6E5E',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
+    shadowColor: '#EF4444', 
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
     elevation: 10,
-  },
+  }
 };
