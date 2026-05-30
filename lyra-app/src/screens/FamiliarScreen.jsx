@@ -79,7 +79,7 @@ export default function FamiliarScreen({ navigation }) {
           <TouchableOpacity style={s.iconBtn} onPress={carregarTudo}><Feather name="refresh-cw" size={18} color={CORES.primaria} /></TouchableOpacity>
         </View>
         <View style={s.titleBox}>
-          <Text style={s.headerTitle}>Lyra Care</Text>
+          <Text style={s.headerTitle}>Lyra</Text>
           <Text style={s.headerGreeting}>Olá, {nomeUsuario || 'Responsável'}</Text>
         </View>
       </View>

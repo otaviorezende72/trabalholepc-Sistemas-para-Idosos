@@ -1,8 +1,8 @@
 // src/theme.js
 export const CORES = {
   // Sua nova identidade
-  primaria: '#0D6E5E',       // Verde escuro principal
-  primariaEscura: '#094E43', // Hover/pressed
+  primaria: '#67badd',       // Verde escuro principal
+  primariaEscura: '#0F52BA', // Hover/pressed
   primariaClara: '#E8F5F2',  // Backgrounds suaves
   secundaria: '#F5F5F5',     // Fundo geral do app
   

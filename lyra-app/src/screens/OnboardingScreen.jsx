@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   Alert, ScrollView, ActivityIndicator, KeyboardAvoidingView,
-  Platform, Dimensions,
+  Platform, Dimensions, Keyboard
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -55,8 +55,8 @@ function TelaEscolha({ onResponsavel, onIdoso }) {
     <View style={{ flex: 1 }}>
       <Onda alturaPercent={0.45}>
         <View style={[s.ondaTopo, { paddingTop: SH * 0.15 }]}>
-          <Text style={s.ondaTituloLargo}>Welcome</Text>
-          <Text style={s.ondaSub}>Select your profile to continue providing or receiving smart care.</Text>
+          <Text style={s.ondaTituloLargo}>Bem-vindo(a)</Text>
+          <Text style={s.ondaSub}>Selecione seu modo de acesso.</Text>
         </View>
       </Onda>
 
@@ -159,8 +159,8 @@ function TelaLogin({ onVoltar, onSucesso }) {
       <View style={{ flex: 1 }}>
         <Onda alturaPercent={0.35} onVoltar={onVoltar}>
           <View style={[s.ondaTopo, { paddingTop: SH * 0.12 }]}>
-            <Text style={s.ondaTituloLargo}>Sign in</Text>
-            <Text style={s.ondaSub}>Enter your credentials to continue</Text>
+            <Text style={s.ondaTituloLargo}>Entrar</Text>
+            <Text style={s.ondaSub}>Acesse com suas credenciais</Text>
           </View>
         </Onda>
         <ScrollView style={s.formScroll} keyboardShouldPersistTaps="handled">
@@ -219,21 +219,21 @@ function TelaCriarConta({ onVoltar, onConcluir }) {
         <Onda alturaPercent={0.25} onVoltar={onVoltar} />
         <ScrollView style={s.formScroll} keyboardShouldPersistTaps="handled">
           <View style={s.formPadding}>
-            <Text style={[s.ondaTituloLargo, { color: CORES.texto, marginBottom: 30 }]}>Sign up</Text>
+            <Text style={[s.ondaTituloLargo, { color: CORES.texto, marginBottom: 30 }]}>Entre</Text>
 
-            <Text style={s.fieldLabel}>Username</Text>
+            <Text style={s.fieldLabel}>Usuário</Text>
             <View style={s.fieldBox}><TextInput style={s.fieldInput} value={usuario} onChangeText={t => { setUsuario(t); setErro(''); }} autoCapitalize="none" /></View>
 
-            <Text style={s.fieldLabel}>Password</Text>
+            <Text style={s.fieldLabel}>Senha</Text>
             <View style={s.fieldBox}><TextInput style={s.fieldInput} value={senha} onChangeText={t => { setSenha(t); setErro(''); }} secureTextEntry autoCapitalize="none" /></View>
 
-            <Text style={s.fieldLabel}>Confirm Password</Text>
+            <Text style={s.fieldLabel}>Confirme a senha</Text>
             <View style={s.fieldBox}><TextInput style={s.fieldInput} value={confirmar} onChangeText={t => { setConfirmar(t); setErro(''); }} secureTextEntry autoCapitalize="none" /></View>
 
             {erro !== '' && <View style={s.erroBox}><Text style={s.erroTexto}>{erro}</Text></View>}
 
             <TouchableOpacity style={s.botaoPrincipal} onPress={handleCriar} disabled={loading}>
-              {loading ? <ActivityIndicator color={CORES.branco} /> : <Text style={s.botaoTexto}>Create Account</Text>}
+              {loading ? <ActivityIndicator color={CORES.branco} /> : <Text style={s.botaoTexto}>Criar conta</Text>}
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -295,7 +295,13 @@ function TelaCodigoIdoso({ onVoltar, onSucesso }) {
           <TextInput
             style={[s.pinInput, erro && { borderColor: CORES.erro }]}
             value={codigo}
-            onChangeText={t => { setCodigo(t.replace(/\D/g, '')); setErro(false); }}
+            onChangeText={t => {const valor = t.replace(/\D/g, '');
+              setCodigo(valor);
+              setErro(false);
+              if (valor.length === 6) {
+              Keyboard.dismiss();
+              }
+            }}
             keyboardType="numeric" maxLength={6}
             placeholder="• • • • • •" placeholderTextColor={CORES.borda}
             textAlign="center" autoFocus
@@ -356,7 +362,7 @@ const s = StyleSheet.create({
   },
   selCardAtivo: { borderColor: CORES.primaria, backgroundColor: '#FFF6F6' },
   selIcone: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#F8F9FA', alignItems: 'center', justifyContent: 'center' },
-  selTitulo: { fontSize: 16, fontWeight: '700', color: CORES.texto },
+  selTitulo: { fontSize: 16, fontWeight: '800', color: CORES.texto },
   selSub: { fontSize: 13, color: CORES.textoSecundario, marginTop: 4 },
 
   // Botões
