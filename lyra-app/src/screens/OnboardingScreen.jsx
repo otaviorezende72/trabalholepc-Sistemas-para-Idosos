@@ -1,9 +1,5 @@
 import React, { useState } from 'react';
-import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
-  Alert, ActivityIndicator, KeyboardAvoidingView,
-  Platform, Dimensions
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Dimensions, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { CORES, SOMBRA } from '../theme';
@@ -11,8 +7,8 @@ import { salvarConta, lerConta, salvarModo, gerarCodigo } from '../services/arma
 
 const { height: SH, width: SW } = Dimensions.get('window');
 
-// Padrão fixo para TODAS as telas (mantém a divisão idêntica sempre)
-const ALTURA_ONDA = 0.38;
+
+const ALTURA_ONDA = 0.34;
 
 // ── Fundo com Curva Suave e Padrão Abstrato ──────────────────────────────────
 function Onda({ onVoltar }) {
@@ -66,9 +62,9 @@ function TelaEscolha({ onResponsavel, onIdoso }) {
 
       <View style={s.conteudoBranco}>
         <View>
-          <Text style={s.tituloAreaBranca}>Bem-vindo(a) ao Lyra</Text>
+          <Text style={s.tituloAreaBranca}>Bem-vindo(a) a Lyra</Text>
           <Text style={s.subAreaBranca}>
-            O amor que você sente por eles merece o cuidado que Lyra oferece.
+            O amor que você sente por eles merece o cuidado que a Lyra oferece.
           </Text>
 
           <Text style={s.selecaoTitulo}>Selecione seu modo de acesso</Text>
@@ -200,40 +196,55 @@ function TelaLogin({ onVoltar, onSucesso }) {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={{ flex: 1 }}>
-        <Onda onVoltar={onVoltar} />
-        
-        <View style={s.conteudoBranco}>
+    <View style={{ flex: 1 }}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1, backgroundColor: CORES.branco }} 
+        behavior="position" 
+        contentContainerStyle={{ height: SH }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? -70 : -115} 
+      >
+        <View style={{ height: SH }}>
+          <Onda />
+          
+          <View style={s.conteudoBranco}>
             <Text style={s.tituloAreaBranca}>Entrar</Text>
             <Text style={s.subAreaBranca}>Insira suas credenciais para acessar o painel</Text>
 
-            <Text style={[s.fieldLabel, { marginTop: 0 }]}>Usuário</Text>
-            <View style={s.fieldBox}>
-              <Feather name="user" size={16} color={CORES.textoSecundario} />
-              <TextInput style={s.fieldInput} placeholder="Ex: maria.silva" placeholderTextColor="#D1D5DB"
-                value={usuario} onChangeText={t => { setUsuario(t); setErro(''); }} autoCapitalize="none" />
-            </View>
+            <View style={{ marginTop: 24 }}>
+              <Text style={[s.fieldLabel, { marginTop: 0 }]}>Usuário</Text>
+              <View style={s.fieldBox}>
+                <Feather name="user" size={16} color={CORES.textoSecundario} />
+                <TextInput style={s.fieldInput} placeholder="Ex: maria.silva" placeholderTextColor="#D1D5DB"
+                  value={usuario} onChangeText={t => { setUsuario(t); setErro(''); }} autoCapitalize="none" />
+              </View>
 
-            <Text style={s.fieldLabel}>Senha</Text>
-            <View style={s.fieldBox}>
-              <Feather name="lock" size={16} color={CORES.textoSecundario} />
-              <TextInput style={s.fieldInput} placeholder="Sua senha secreta" placeholderTextColor="#D1D5DB"
-                value={senha} onChangeText={t => { setSenha(t); setErro(''); }}
-                secureTextEntry={!verSenha} autoCapitalize="none" />
-              <TouchableOpacity onPress={() => setVerSenha(v => !v)}>
-                <Feather name={verSenha ? 'eye-off' : 'eye'} size={16} color={CORES.textoSecundario} />
+              <Text style={s.fieldLabel}>Senha</Text>
+              <View style={s.fieldBox}>
+                <Feather name="lock" size={16} color={CORES.textoSecundario} />
+                <TextInput style={s.fieldInput} placeholder="Sua senha secreta" placeholderTextColor="#D1D5DB"
+                  value={senha} onChangeText={t => { setSenha(t); setErro(''); }}
+                  secureTextEntry={!verSenha} autoCapitalize="none" />
+                <TouchableOpacity onPress={() => setVerSenha(v => !v)}>
+                  <Feather name={verSenha ? 'eye-off' : 'eye'} size={16} color={CORES.textoSecundario} />
+                </TouchableOpacity>
+              </View>
+
+              {erro !== '' && <View style={s.erroBox}><Text style={s.erroTexto}>{erro}</Text></View>}
+
+              <TouchableOpacity style={[s.botaoPrincipal, loading && { opacity: 0.7 }]} onPress={handleEntrar} disabled={loading}>
+                {loading ? <ActivityIndicator color={CORES.branco} /> : <Text style={s.botaoTexto}>Acessar painel</Text>}
               </TouchableOpacity>
             </View>
-
-            {erro !== '' && <View style={s.erroBox}><Text style={s.erroTexto}>{erro}</Text></View>}
-
-            <TouchableOpacity style={[s.botaoPrincipal, loading && { opacity: 0.7 }]} onPress={handleEntrar} disabled={loading}>
-              {loading ? <ActivityIndicator color={CORES.branco} /> : <Text style={s.botaoTexto}>Acessar painel</Text>}
-            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+
+      {onVoltar && (
+        <TouchableOpacity style={ow.voltarBtn} onPress={onVoltar}>
+          <Feather name="arrow-left" size={20} color={CORES.branco} />
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -255,43 +266,58 @@ function TelaCriarConta({ onVoltar, onConcluir }) {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={{ flex: 1 }}>
-        <Onda onVoltar={onVoltar} />
-        
-        <View style={s.conteudoBranco}>
+    <View style={{ flex: 1 }}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1, backgroundColor: CORES.branco }} 
+        behavior="position"
+        contentContainerStyle={{ height: SH }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -45} 
+      >
+        <View style={{ height: SH }}>
+          <Onda />
+          
+          <View style={s.conteudoBranco}>
             <Text style={s.tituloAreaBranca}>Criar Conta</Text>
             <Text style={s.subAreaBranca}>Preencha seus dados para começar</Text>
 
-            <Text style={[s.fieldLabel, { marginTop: 0 }]}>Usuário</Text>
-            <View style={s.fieldBox}>
-              <Feather name="user" size={16} color={CORES.textoSecundario} />
-              <TextInput style={s.fieldInput} placeholder="Ex: maria.silva" placeholderTextColor="#D1D5DB"
-                value={usuario} onChangeText={t => { setUsuario(t); setErro(''); }} autoCapitalize="none" />
+            <View style={{ marginTop: 24 }}>
+              <Text style={[s.fieldLabel, { marginTop: 0 }]}>Usuário</Text>
+              <View style={s.fieldBox}>
+                <Feather name="user" size={16} color={CORES.textoSecundario} />
+                <TextInput style={s.fieldInput} placeholder="Ex: maria.silva" placeholderTextColor="#D1D5DB"
+                  value={usuario} onChangeText={t => { setUsuario(t); setErro(''); }} autoCapitalize="none" />
+              </View>
+
+              <Text style={s.fieldLabel}>Senha</Text>
+              <View style={s.fieldBox}>
+                <Feather name="lock" size={16} color={CORES.textoSecundario} />
+                <TextInput style={s.fieldInput} placeholder="Mínimo 4 caracteres" placeholderTextColor="#D1D5DB"
+                  value={senha} onChangeText={t => { setSenha(t); setErro(''); }} secureTextEntry autoCapitalize="none" />
+              </View>
+
+              <Text style={s.fieldLabel}>Confirmar Senha</Text>
+              <View style={s.fieldBox}>
+                <Feather name="check-circle" size={16} color={CORES.textoSecundario} />
+                <TextInput style={s.fieldInput} placeholder="Repita sua senha" placeholderTextColor="#D1D5DB"
+                  value={confirmar} onChangeText={t => { setConfirmar(t); setErro(''); }} secureTextEntry autoCapitalize="none" />
+              </View>
+
+              {erro !== '' && <View style={s.erroBox}><Text style={s.erroTexto}>{erro}</Text></View>}
+
+              <TouchableOpacity style={[s.botaoPrincipal, loading && { opacity: 0.7 }]} onPress={handleCriar} disabled={loading}>
+                {loading ? <ActivityIndicator color={CORES.branco} /> : <Text style={s.botaoTexto}>Cadastrar e avançar</Text>}
+              </TouchableOpacity>
             </View>
-
-            <Text style={s.fieldLabel}>Senha</Text>
-            <View style={s.fieldBox}>
-              <Feather name="lock" size={16} color={CORES.textoSecundario} />
-              <TextInput style={s.fieldInput} placeholder="Mínimo 4 caracteres" placeholderTextColor="#D1D5DB"
-                value={senha} onChangeText={t => { setSenha(t); setErro(''); }} secureTextEntry autoCapitalize="none" />
-            </View>
-
-            <Text style={s.fieldLabel}>Confirmar Senha</Text>
-            <View style={s.fieldBox}>
-              <Feather name="check-circle" size={16} color={CORES.textoSecundario} />
-              <TextInput style={s.fieldInput} placeholder="Repita sua senha" placeholderTextColor="#D1D5DB"
-                value={confirmar} onChangeText={t => { setConfirmar(t); setErro(''); }} secureTextEntry autoCapitalize="none" />
-            </View>
-
-            {erro !== '' && <View style={s.erroBox}><Text style={s.erroTexto}>{erro}</Text></View>}
-
-            <TouchableOpacity style={[s.botaoPrincipal, loading && { opacity: 0.7 }]} onPress={handleCriar} disabled={loading}>
-              {loading ? <ActivityIndicator color={CORES.branco} /> : <Text style={s.botaoTexto}>Cadastrar e avançar</Text>}
-            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+
+      {onVoltar && (
+        <TouchableOpacity style={ow.voltarBtn} onPress={onVoltar}>
+          <Feather name="arrow-left" size={20} color={CORES.branco} />
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -337,32 +363,52 @@ function TelaCodigoIdoso({ onVoltar, onSucesso }) {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={{ flex: 1 }}>
-        <Onda onVoltar={onVoltar} />
-        
-        <View style={s.conteudoBranco}>
-          <Text style={s.tituloAreaBranca}>Acesso Paciente</Text>
-          <Text style={s.subAreaBranca}>
-            Digite o código de 6 dígitos gerado pelo seu familiar.
-          </Text>
-
-          <TextInput
-            style={[s.pinInput, erro && { borderColor: CORES.erro }]}
-            value={codigo}
-            onChangeText={t => { setCodigo(t.replace(/\D/g, '')); setErro(false); }}
-            keyboardType="numeric" maxLength={6}
-            placeholder="• • • • • •" placeholderTextColor={CORES.borda}
-            textAlign="center" autoFocus
-          />
-          {erro && <Text style={[s.erroTexto, { textAlign: 'center', marginTop: 10 }]}>Código inválido</Text>}
+    <View style={{ flex: 1 }}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1, backgroundColor: CORES.branco }} 
+        behavior="position"
+        contentContainerStyle={{ height: SH }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? -35 : -80} 
+      >
+        <View style={{ height: SH }}>
+          <Onda />
           
-          <TouchableOpacity style={[s.botaoPrincipal, codigo.length < 6 && s.botaoOff]} onPress={handleVerificar} disabled={codigo.length < 6}>
-            <Text style={s.botaoTexto}>Conectar</Text>
-          </TouchableOpacity>
+          <View style={[s.conteudoBranco, { paddingTop: 0 }]}>
+            <View style={{ flex: 1, justifyContent: 'center', paddingBottom: 20 }}>
+              <Text style={s.tituloAreaBranca}>Acesso Paciente</Text>
+              <Text style={s.subAreaBranca}>
+                Digite o código de 6 dígitos gerado pelo seu familiar.
+              </Text>
+
+              <TextInput
+                style={[s.pinInput, erro && { borderColor: CORES.erro }]}
+                value={codigo}
+                onChangeText={t => { setCodigo(t.replace(/\D/g, '')); setErro(false); }}
+                keyboardType="numeric" maxLength={6}
+                placeholder="• • • • • •" placeholderTextColor={CORES.borda}
+                textAlign="center"
+              />
+              {erro && <Text style={[s.erroTexto, { textAlign: 'center', marginTop: 10 }]}>Código inválido</Text>}
+              
+              <TouchableOpacity 
+                style={[s.botaoPrincipal, codigo.length < 6 && s.botaoOff, { marginTop: erro ? 12 : 32 }]} 
+                onPress={handleVerificar} 
+                disabled={codigo.length < 6}
+              >
+                <Text style={s.botaoTexto}>Conectar</Text>
+              </TouchableOpacity>
+            </View>
+
+          </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+
+      {onVoltar && (
+        <TouchableOpacity style={ow.voltarBtn} onPress={onVoltar}>
+          <Feather name="arrow-left" size={20} color={CORES.branco} />
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -397,8 +443,8 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: CORES.primaria },
   
   tituloAreaBranca: { fontSize: 28, fontWeight: '800', color: CORES.texto, textAlign: 'center', marginBottom: 6 },
-  subAreaBranca: { fontSize: 14, color: CORES.textoSecundario, textAlign: 'center', paddingHorizontal: 10, marginBottom: 24 }, // Espaçamento base padrão
-  
+  subAreaBranca: {fontSize: 14, color: CORES.textoSecundario, textAlign: 'center', paddingHorizontal: 24, lineHeight: 22, marginBottom: 24},
+
   conteudoBranco: {
     position: 'absolute', left: 0, right: 0, bottom: 0, top: SH * ALTURA_ONDA - 15,
     paddingTop: 40, paddingHorizontal: 32, paddingBottom: 20, zIndex: 15,
@@ -434,7 +480,7 @@ const s = StyleSheet.create({
 
   fieldLabel: { fontSize: 13, fontWeight: '700', color: CORES.texto, marginTop: 20, marginBottom: 8 },
   fieldBox: { flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', paddingBottom: 10 },
-  fieldInput: { flex: 1, fontSize: 15, color: CORES.texto, paddingVertical: 4 },
+  fieldInput: { flex: 1, fontSize: 15, color: CORES.texto, paddingVertical: 4, letterSpacing: 0},
   
   erroBox: { marginTop: 12 },
   erroTexto: { fontSize: 13, color: CORES.erro, fontWeight: '500' },
