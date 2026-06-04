@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// ⚠️ Troque pelo IP do seu computador onde o FastAPI roda
+// Trocar pelo IP do seu computador onde o FastAPI roda
 // Celular físico na mesma rede Wi-Fi: use o IP local (ex: 192.168.1.100)
 // Emulador Android: use 10.0.2.2
 export const BASE_URL = 'http://172.20.208.1:8000';
@@ -65,15 +65,15 @@ export const resolverAlerta = async (id) => {
 
 // ── Configurações do Idoso ────────────────────────────────────────────────────
 
-// GET /elder-settings
+// GET /settings (Corrigido para bater com o backend do seu colega)
 export const buscarConfiguracoes = async () => {
-  const { data } = await api.get('/elder-settings');
+  const { data } = await api.get('/settings');
   return data;
 };
 
-// PUT /elder-settings
+// PUT /settings (Corrigido para bater com o backend do seu colega)
 export const salvarConfiguracoes = async (payload) => {
-  const { data } = await api.put('/elder-settings', payload);
+  const { data } = await api.put('/settings', payload);
   return data;
 };
 
