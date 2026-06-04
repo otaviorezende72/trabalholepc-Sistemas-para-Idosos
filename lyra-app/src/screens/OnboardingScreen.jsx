@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  Alert, ScrollView, ActivityIndicator, KeyboardAvoidingView,
-  Platform, Dimensions, Keyboard
+  Alert, ActivityIndicator, KeyboardAvoidingView,
+  Platform, Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -11,23 +11,28 @@ import { salvarConta, lerConta, salvarModo, gerarCodigo } from '../services/arma
 
 const { height: SH, width: SW } = Dimensions.get('window');
 
-// ── Fundo com Curva Suave (Estilo Imagem 1) ──────────────────────────────────
-function Onda({ alturaPercent = 0.45, children, onVoltar }) {
+// Padrão fixo para TODAS as telas (mantém a divisão idêntica sempre)
+const ALTURA_ONDA = 0.38;
+
+// ── Fundo com Curva Suave e Padrão Abstrato ──────────────────────────────────
+function Onda({ onVoltar }) {
   return (
-    <View style={{ flex: 1, backgroundColor: CORES.primaria }}>
+    <View style={{ flex: 1, backgroundColor: CORES.primaria, overflow: 'hidden' }}>
+      
+      {/* Padrão Abstrato (Wallpaper Style) */}
+      <View style={ow.forma1} />
+      <View style={ow.forma2} />
+      <View style={ow.forma3} />
+      <View style={ow.forma4} />
+
       {onVoltar && (
         <TouchableOpacity style={ow.voltarBtn} onPress={onVoltar}>
           <Feather name="arrow-left" size={20} color={CORES.branco} />
         </TouchableOpacity>
       )}
-      
-      {/* Background Rosa Base */}
-      <View style={{ height: SH * alturaPercent, zIndex: 10 }}>
-        {children}
-      </View>
 
       {/* Curva Branca Perfeita usando círculo sobredimensionado */}
-      <View style={[ow.curvaBranca, { top: SH * alturaPercent - 50 }]} />
+      <View style={[ow.curvaBranca, { top: SH * ALTURA_ONDA - 45 }]} />
     </View>
   );
 }
@@ -43,8 +48,12 @@ const ow = StyleSheet.create({
     position: 'absolute', left: -SW * 0.5, right: -SW * 0.5,
     width: SW * 2, height: SH,
     backgroundColor: CORES.branco,
-    borderRadius: SW, // Transforma em um círculo gigante para fazer a curva suave
+    borderRadius: SW, 
   },
+  forma1: { position: 'absolute', top: -60, right: -40, width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255,255,255,0.04)' },
+  forma2: { position: 'absolute', top: 100, left: -80, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.06)' },
+  forma3: { position: 'absolute', top: 30, left: 60, width: 300, height: 150, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.03)', transform: [{ rotate: '-20deg' }] },
+  forma4: { position: 'absolute', top: 220, right: 30, width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.05)' },
 });
 
 // ── Tela 1: Boas-vindas ───────────────────────────────────────────────────────
@@ -53,39 +62,49 @@ function TelaEscolha({ onResponsavel, onIdoso }) {
 
   return (
     <View style={{ flex: 1 }}>
-      <Onda alturaPercent={0.45}>
-        <View style={[s.ondaTopo, { paddingTop: SH * 0.15 }]}>
-          <Text style={s.ondaTituloLargo}>Bem-vindo(a)</Text>
-          <Text style={s.ondaSub}>Selecione seu modo de acesso.</Text>
-        </View>
-      </Onda>
+      <Onda />
 
       <View style={s.conteudoBranco}>
-        <View style={{ gap: 16, marginTop: 20 }}>
-          {[
-            { id: 'RESPONSAVEL', icone: 'shield', titulo: 'Sou o Responsável', sub: 'Configuro e monitoro o cuidado' },
-            { id: 'IDOSO',       icone: 'heart',  titulo: 'Sou o Idoso',        sub: 'Tenho o código do meu familiar' },
-          ].map(op => (
-            <TouchableOpacity
-              key={op.id}
-              style={[s.selCard, sel === op.id && s.selCardAtivo]}
-              onPress={() => setSel(op.id)}
-              activeOpacity={0.8}
-            >
-              <View style={[s.selIcone, sel === op.id && { backgroundColor: CORES.primaria }]}>
-                <Feather name={op.icone} size={18} color={sel === op.id ? CORES.branco : CORES.primaria} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.selTitulo}>{op.titulo}</Text>
-                <Text style={s.selSub}>{op.sub}</Text>
-              </View>
-              {sel === op.id && <Feather name="check-circle" size={18} color={CORES.primaria} />}
-            </TouchableOpacity>
-          ))}
+        <View>
+          <Text style={s.tituloAreaBranca}>Bem-vindo(a) ao Lyra</Text>
+          <Text style={s.subAreaBranca}>
+            O amor que você sente por eles merece o cuidado que Lyra oferece.
+          </Text>
+
+          <Text style={s.selecaoTitulo}>Selecione seu modo de acesso</Text>
+          
+          <View style={{ gap: 16 }}>
+            {[
+              // Textos simplificados para ficar em uma linha
+              { id: 'RESPONSAVEL', icone: 'shield', titulo: 'Sou o Responsável' },
+              { id: 'IDOSO',       icone: 'heart',  titulo: 'Sou o Idoso' },
+            ].map(op => (
+              <TouchableOpacity
+                key={op.id}
+                style={[s.cardPadrao, sel === op.id && s.cardPadraoAtivo]}
+                onPress={() => setSel(op.id)}
+                activeOpacity={0.8}
+              >
+                <View style={[s.cardIcone, sel === op.id && { backgroundColor: CORES.primaria }]}>
+                  <Feather name={op.icone} size={18} color={sel === op.id ? CORES.branco : CORES.primaria} />
+                </View>
+                {/* Flex 1 e justifyContent center para alinhar verticalmente com perfeição na ausência de subtítulo */}
+                <View style={{ flex: 1, justifyContent: 'center' }}>
+                  <Text style={s.cardTitulo}>{op.titulo}</Text>
+                </View>
+                <Feather 
+                  name="check-circle" 
+                  size={18} 
+                  color={CORES.primaria} 
+                  style={{ opacity: sel === op.id ? 1 : 0 }} 
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         <View style={s.continuarRow}>
-          <Text style={s.continuarTexto}>Continue</Text>
+          <Text style={s.continuarTexto}>Continuar</Text>
           <TouchableOpacity
             style={[s.continuarBtn, !sel && s.continuarBtnOff]}
             onPress={() => sel === 'RESPONSAVEL' ? onResponsavel() : onIdoso()}
@@ -101,34 +120,60 @@ function TelaEscolha({ onResponsavel, onIdoso }) {
 
 // ── Tela 2: Responsável — entrar ou criar ─────────────────────────────────────
 function TelaResponsavel({ onVoltar, onEntrar, onCriarConta }) {
+  const [sel, setSel] = useState(null);
+
+  const handleContinuar = () => {
+    if (sel === 'ENTRAR') onEntrar();
+    if (sel === 'CRIAR') onCriarConta();
+  };
+
   return (
     <View style={{ flex: 1 }}>
-      <Onda alturaPercent={0.35} onVoltar={onVoltar}>
-        <View style={[s.ondaTopo, { paddingTop: SH * 0.12 }]}>
-          <Text style={s.ondaTituloLargo}>Responsável</Text>
-          <Text style={s.ondaSub}>Como deseja acessar o painel?</Text>
-        </View>
-      </Onda>
+      <Onda onVoltar={onVoltar} />
+      
       <View style={s.conteudoBranco}>
-        <TouchableOpacity style={s.actionCard} onPress={onEntrar} activeOpacity={0.8}>
-          <View style={s.actionCardIcone}><Feather name="log-in" size={20} color={CORES.primaria} /></View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.actionCardTitulo}>Entrar na conta</Text>
-            <Text style={s.actionCardSub}>Já tenho cadastro</Text>
-          </View>
-        </TouchableOpacity>
+        <View>
+          <Text style={s.tituloAreaBranca}>Responsável</Text>
+          <Text style={s.subAreaBranca}>
+            Gerencie e acompanhe a rotina do seu familiar em tempo real
+          </Text>
 
-        <View style={s.divisorRow}>
-          <View style={s.divisorLinha} /><Text style={s.divisorTexto}>ou</Text><View style={s.divisorLinha} />
+          <Text style={s.selecaoTitulo}>Como deseja acessar o painel?</Text>
+          
+          <View style={{ gap: 16 }}>
+            {[
+              { id: 'ENTRAR', icone: 'log-in', titulo: 'Entrar na conta', sub: 'Já tenho cadastro' },
+              { id: 'CRIAR',  icone: 'user-plus', titulo: 'Criar conta', sub: 'Quero me cadastrar agora' },
+            ].map(op => (
+              <TouchableOpacity
+                key={op.id}
+                style={[s.cardPadrao, sel === op.id && s.cardPadraoAtivo]}
+                onPress={() => setSel(op.id)}
+                activeOpacity={0.8}
+              >
+                <View style={[s.cardIcone, sel === op.id && { backgroundColor: CORES.primaria }]}>
+                  <Feather name={op.icone} size={18} color={sel === op.id ? CORES.branco : CORES.primaria} />
+                </View>
+                <View style={{ flex: 1, justifyContent: 'center' }}>
+                  <Text style={s.cardTitulo}>{op.titulo}</Text>
+                  {op.sub && <Text style={s.cardSub}>{op.sub}</Text>}
+                </View>
+                <Feather name="check-circle" size={18} color={CORES.primaria} style={{ opacity: sel === op.id ? 1 : 0 }} />
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
-        <TouchableOpacity style={[s.actionCard, s.actionCardRosa]} onPress={onCriarConta} activeOpacity={0.8}>
-          <View style={[s.actionCardIcone, { backgroundColor: 'rgba(255,255,255,0.2)' }]}><Feather name="user-plus" size={20} color={CORES.branco} /></View>
-          <View style={{ flex: 1 }}>
-            <Text style={[s.actionCardTitulo, { color: CORES.branco }]}>Criar conta</Text>
-            <Text style={[s.actionCardSub, { color: 'rgba(255,255,255,0.8)' }]}>Quero me cadastrar agora</Text>
-          </View>
-        </TouchableOpacity>
+        <View style={s.continuarRow}>
+          <Text style={s.continuarTexto}>Continuar</Text>
+          <TouchableOpacity
+            style={[s.continuarBtn, !sel && s.continuarBtnOff]}
+            onPress={handleContinuar}
+            disabled={!sel}
+          >
+            <Feather name="arrow-right" size={20} color={CORES.branco} />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -157,26 +202,23 @@ function TelaLogin({ onVoltar, onSucesso }) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={{ flex: 1 }}>
-        <Onda alturaPercent={0.35} onVoltar={onVoltar}>
-          <View style={[s.ondaTopo, { paddingTop: SH * 0.12 }]}>
-            <Text style={s.ondaTituloLargo}>Entrar</Text>
-            <Text style={s.ondaSub}>Acesse com suas credenciais</Text>
-          </View>
-        </Onda>
-        <ScrollView style={s.formScroll} keyboardShouldPersistTaps="handled">
-          <View style={s.formPadding}>
-            
-            <Text style={s.fieldLabel}>Username</Text>
+        <Onda onVoltar={onVoltar} />
+        
+        <View style={s.conteudoBranco}>
+            <Text style={s.tituloAreaBranca}>Entrar</Text>
+            <Text style={s.subAreaBranca}>Insira suas credenciais para acessar o painel</Text>
+
+            <Text style={[s.fieldLabel, { marginTop: 0 }]}>Usuário</Text>
             <View style={s.fieldBox}>
               <Feather name="user" size={16} color={CORES.textoSecundario} />
-              <TextInput style={s.fieldInput} placeholder="demo@email.com" placeholderTextColor="#D1D5DB"
+              <TextInput style={s.fieldInput} placeholder="Ex: maria.silva" placeholderTextColor="#D1D5DB"
                 value={usuario} onChangeText={t => { setUsuario(t); setErro(''); }} autoCapitalize="none" />
             </View>
 
-            <Text style={s.fieldLabel}>Password</Text>
+            <Text style={s.fieldLabel}>Senha</Text>
             <View style={s.fieldBox}>
               <Feather name="lock" size={16} color={CORES.textoSecundario} />
-              <TextInput style={s.fieldInput} placeholder="enter your password" placeholderTextColor="#D1D5DB"
+              <TextInput style={s.fieldInput} placeholder="Sua senha secreta" placeholderTextColor="#D1D5DB"
                 value={senha} onChangeText={t => { setSenha(t); setErro(''); }}
                 secureTextEntry={!verSenha} autoCapitalize="none" />
               <TouchableOpacity onPress={() => setVerSenha(v => !v)}>
@@ -187,10 +229,9 @@ function TelaLogin({ onVoltar, onSucesso }) {
             {erro !== '' && <View style={s.erroBox}><Text style={s.erroTexto}>{erro}</Text></View>}
 
             <TouchableOpacity style={[s.botaoPrincipal, loading && { opacity: 0.7 }]} onPress={handleEntrar} disabled={loading}>
-              {loading ? <ActivityIndicator color={CORES.branco} /> : <Text style={s.botaoTexto}>Login</Text>}
+              {loading ? <ActivityIndicator color={CORES.branco} /> : <Text style={s.botaoTexto}>Acessar painel</Text>}
             </TouchableOpacity>
-          </View>
-        </ScrollView>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -216,27 +257,39 @@ function TelaCriarConta({ onVoltar, onConcluir }) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={{ flex: 1 }}>
-        <Onda alturaPercent={0.25} onVoltar={onVoltar} />
-        <ScrollView style={s.formScroll} keyboardShouldPersistTaps="handled">
-          <View style={s.formPadding}>
-            <Text style={[s.ondaTituloLargo, { color: CORES.texto, marginBottom: 30 }]}>Entre</Text>
+        <Onda onVoltar={onVoltar} />
+        
+        <View style={s.conteudoBranco}>
+            <Text style={s.tituloAreaBranca}>Criar Conta</Text>
+            <Text style={s.subAreaBranca}>Preencha seus dados para começar</Text>
 
-            <Text style={s.fieldLabel}>Usuário</Text>
-            <View style={s.fieldBox}><TextInput style={s.fieldInput} value={usuario} onChangeText={t => { setUsuario(t); setErro(''); }} autoCapitalize="none" /></View>
+            <Text style={[s.fieldLabel, { marginTop: 0 }]}>Usuário</Text>
+            <View style={s.fieldBox}>
+              <Feather name="user" size={16} color={CORES.textoSecundario} />
+              <TextInput style={s.fieldInput} placeholder="Ex: maria.silva" placeholderTextColor="#D1D5DB"
+                value={usuario} onChangeText={t => { setUsuario(t); setErro(''); }} autoCapitalize="none" />
+            </View>
 
             <Text style={s.fieldLabel}>Senha</Text>
-            <View style={s.fieldBox}><TextInput style={s.fieldInput} value={senha} onChangeText={t => { setSenha(t); setErro(''); }} secureTextEntry autoCapitalize="none" /></View>
+            <View style={s.fieldBox}>
+              <Feather name="lock" size={16} color={CORES.textoSecundario} />
+              <TextInput style={s.fieldInput} placeholder="Mínimo 4 caracteres" placeholderTextColor="#D1D5DB"
+                value={senha} onChangeText={t => { setSenha(t); setErro(''); }} secureTextEntry autoCapitalize="none" />
+            </View>
 
-            <Text style={s.fieldLabel}>Confirme a senha</Text>
-            <View style={s.fieldBox}><TextInput style={s.fieldInput} value={confirmar} onChangeText={t => { setConfirmar(t); setErro(''); }} secureTextEntry autoCapitalize="none" /></View>
+            <Text style={s.fieldLabel}>Confirmar Senha</Text>
+            <View style={s.fieldBox}>
+              <Feather name="check-circle" size={16} color={CORES.textoSecundario} />
+              <TextInput style={s.fieldInput} placeholder="Repita sua senha" placeholderTextColor="#D1D5DB"
+                value={confirmar} onChangeText={t => { setConfirmar(t); setErro(''); }} secureTextEntry autoCapitalize="none" />
+            </View>
 
             {erro !== '' && <View style={s.erroBox}><Text style={s.erroTexto}>{erro}</Text></View>}
 
-            <TouchableOpacity style={s.botaoPrincipal} onPress={handleCriar} disabled={loading}>
-              {loading ? <ActivityIndicator color={CORES.branco} /> : <Text style={s.botaoTexto}>Criar conta</Text>}
+            <TouchableOpacity style={[s.botaoPrincipal, loading && { opacity: 0.7 }]} onPress={handleCriar} disabled={loading}>
+              {loading ? <ActivityIndicator color={CORES.branco} /> : <Text style={s.botaoTexto}>Cadastrar e avançar</Text>}
             </TouchableOpacity>
-          </View>
-        </ScrollView>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -246,25 +299,26 @@ function TelaCriarConta({ onVoltar, onConcluir }) {
 function TelaExibirCodigo({ nome, codigo, onConcluir }) {
   return (
     <View style={{ flex: 1 }}>
-      <Onda alturaPercent={0.4}>
-        <View style={[s.ondaTopo, { paddingTop: SH * 0.15, alignItems: 'center' }]}>
-          <View style={s.successIcone}><Feather name="check" size={28} color={CORES.primaria} /></View>
-          <Text style={[s.ondaTituloLargo, { textAlign: 'center' }]}>All set!</Text>
-          <Text style={[s.ondaSub, { textAlign: 'center' }]}>Account created for {nome}</Text>
-        </View>
-      </Onda>
+      <Onda />
+      
       <View style={[s.conteudoBranco, { alignItems: 'center' }]}>
-        <Text style={s.fieldLabel}>Elderly Access Code</Text>
+        <View style={s.successIcone}><Feather name="check" size={32} color={CORES.primaria} /></View>
+        <Text style={s.tituloAreaBranca}>Tudo pronto!</Text>
+        <Text style={s.subAreaBranca}>Conta criada com sucesso para {nome}</Text>
+
+        <Text style={[s.fieldLabel, { marginTop: 10 }]}>Código de Acesso do Idoso</Text>
         <View style={s.codigoRow}>
           {codigo.split('').map((d, i) => (
             <View key={i} style={s.codigoDigito}><Text style={s.codigoDigitoTexto}>{d}</Text></View>
           ))}
         </View>
-        <Text style={[s.ondaSub, { color: CORES.textoSecundario, textAlign: 'center', marginBottom: 40 }]}>
-          Share this 6-digit code with the elderly person's device to link accounts.
+        
+        <Text style={s.subAreaBranca}>
+          Compartilhe este código de 6 dígitos para vincular a conta do seu familiar.
         </Text>
+        
         <TouchableOpacity style={[s.botaoPrincipal, { width: '100%' }]} onPress={onConcluir}>
-          <Text style={s.botaoTexto}>Go to Dashboard</Text>
+          <Text style={s.botaoTexto}>Ir para o Painel</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -285,30 +339,26 @@ function TelaCodigoIdoso({ onVoltar, onSucesso }) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={{ flex: 1 }}>
-        <Onda alturaPercent={0.4} onVoltar={onVoltar}>
-          <View style={[s.ondaTopo, { paddingTop: SH * 0.15 }]}>
-            <Text style={s.ondaTituloLargo}>Patient Access</Text>
-            <Text style={s.ondaSub}>Enter the 6-digit code provided by your caregiver.</Text>
-          </View>
-        </Onda>
+        <Onda onVoltar={onVoltar} />
+        
         <View style={s.conteudoBranco}>
+          <Text style={s.tituloAreaBranca}>Acesso Paciente</Text>
+          <Text style={s.subAreaBranca}>
+            Digite o código de 6 dígitos gerado pelo seu familiar.
+          </Text>
+
           <TextInput
             style={[s.pinInput, erro && { borderColor: CORES.erro }]}
             value={codigo}
-            onChangeText={t => {const valor = t.replace(/\D/g, '');
-              setCodigo(valor);
-              setErro(false);
-              if (valor.length === 6) {
-              Keyboard.dismiss();
-              }
-            }}
+            onChangeText={t => { setCodigo(t.replace(/\D/g, '')); setErro(false); }}
             keyboardType="numeric" maxLength={6}
             placeholder="• • • • • •" placeholderTextColor={CORES.borda}
             textAlign="center" autoFocus
           />
-          {erro && <Text style={[s.erroTexto, { textAlign: 'center', marginTop: 10 }]}>Invalid code</Text>}
-          <TouchableOpacity style={[s.botaoPrincipal, { marginTop: 40 }, codigo.length < 6 && s.botaoOff]} onPress={handleVerificar} disabled={codigo.length < 6}>
-            <Text style={s.botaoTexto}>Connect</Text>
+          {erro && <Text style={[s.erroTexto, { textAlign: 'center', marginTop: 10 }]}>Código inválido</Text>}
+          
+          <TouchableOpacity style={[s.botaoPrincipal, codigo.length < 6 && s.botaoOff]} onPress={handleVerificar} disabled={codigo.length < 6}>
+            <Text style={s.botaoTexto}>Conectar</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -324,7 +374,12 @@ export default function OnboardingScreen({ navigation }) {
 
   const entrarFamiliar = async () => { await salvarModo('FAMILIAR'); navigation.replace('Familiar'); };
   const entrarIdoso = () => navigation.replace('Idoso');
-  const handleCriou = (nome, codigo) => { setContaNome(nome); setContaCodigo(codigo); setTela('exibir_codigo'); };
+  
+  const handleCriou = (nome, codigo) => { 
+    setContaNome(nome); 
+    setContaCodigo(codigo); 
+    setTela('exibir_codigo'); 
+  };
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -340,66 +395,54 @@ export default function OnboardingScreen({ navigation }) {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: CORES.primaria },
-  ondaTopo: { paddingHorizontal: 32, zIndex: 11 },
-  ondaTituloLargo: { fontSize: 34, fontWeight: '700', color: CORES.branco, letterSpacing: -0.5, marginBottom: 8 },
-  ondaSub: { fontSize: 15, color: 'rgba(255,255,255,0.85)', lineHeight: 22 },
+  
+  tituloAreaBranca: { fontSize: 28, fontWeight: '800', color: CORES.texto, textAlign: 'center', marginBottom: 6 },
+  subAreaBranca: { fontSize: 14, color: CORES.textoSecundario, textAlign: 'center', paddingHorizontal: 10, marginBottom: 24 }, // Espaçamento base padrão
   
   conteudoBranco: {
-    position: 'absolute', left: 0, right: 0, bottom: 0, top: SH * 0.40,
-    paddingHorizontal: 32, paddingTop: 20, zIndex: 15,
+    position: 'absolute', left: 0, right: 0, bottom: 0, top: SH * ALTURA_ONDA - 15,
+    paddingTop: 40, paddingHorizontal: 32, paddingBottom: 20, zIndex: 15,
   },
-  formScroll: {
-    position: 'absolute', left: 0, right: 0, bottom: 0, top: SH * 0.30,
-    zIndex: 15,
-  },
-  formPadding: { paddingHorizontal: 32, paddingTop: 10, paddingBottom: 40 },
 
-  // Cards & Seleção
-  selCard: {
+  selecaoTitulo: { 
+    fontSize: 14, 
+    fontWeight: '700', 
+    color: CORES.textoSecundario, 
+    marginBottom: 16, 
+    textAlign: 'center' 
+  },
+  cardPadrao: {
     flexDirection: 'row', alignItems: 'center', gap: 16,
     backgroundColor: CORES.branco, borderRadius: 20, padding: 20,
     borderWidth: 1, borderColor: CORES.borda, ...SOMBRA.pequena,
   },
-  selCardAtivo: { borderColor: CORES.primaria, backgroundColor: '#FFF6F6' },
-  selIcone: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#F8F9FA', alignItems: 'center', justifyContent: 'center' },
-  selTitulo: { fontSize: 16, fontWeight: '800', color: CORES.texto },
-  selSub: { fontSize: 13, color: CORES.textoSecundario, marginTop: 4 },
+  cardPadraoAtivo: { borderColor: CORES.primaria, backgroundColor: CORES.primariaClara },
+  
+  cardIcone: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#F8F9FA', alignItems: 'center', justifyContent: 'center' },
+  cardTitulo: { fontSize: 16, fontWeight: '700', color: CORES.texto },
+  cardSub: { fontSize: 13, color: CORES.textoSecundario, marginTop: 4 },
 
-  // Botões
-  continuarRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 40, gap: 16 },
+  // Margem padronizada (32) empurrando a parte de baixo
+  continuarRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 16, marginTop: 32 },
   continuarTexto: { fontSize: 15, fontWeight: '600', color: CORES.textoSecundario },
   continuarBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: CORES.primaria, alignItems: 'center', justifyContent: 'center', ...SOMBRA.media },
   continuarBtnOff: { backgroundColor: '#E5E7EB', shadowOpacity: 0 },
 
-  botaoPrincipal: { backgroundColor: CORES.primaria, borderRadius: 16, padding: 18, alignItems: 'center', marginTop: 24, ...SOMBRA.media },
+  botaoPrincipal: { backgroundColor: CORES.primaria, borderRadius: 16, padding: 18, alignItems: 'center', marginTop: 32, ...SOMBRA.media },
   botaoOff: { backgroundColor: '#E5E7EB', shadowOpacity: 0 },
   botaoTexto: { color: CORES.branco, fontSize: 16, fontWeight: '700' },
 
-  // Ações
-  actionCard: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: CORES.branco, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: CORES.borda, ...SOMBRA.pequena },
-  actionCardRosa: { backgroundColor: CORES.primaria, borderColor: CORES.primaria, ...SOMBRA.media },
-  actionCardIcone: { width: 46, height: 46, borderRadius: 14, backgroundColor: '#FFF0F0', alignItems: 'center', justifyContent: 'center' },
-  actionCardTitulo: { fontSize: 16, fontWeight: '700', color: CORES.texto },
-  actionCardSub: { fontSize: 13, color: CORES.textoSecundario, marginTop: 4 },
-
-  divisorRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginVertical: 24 },
-  divisorLinha: { flex: 1, height: 1, backgroundColor: CORES.borda },
-  divisorTexto: { fontSize: 14, color: CORES.textoSecundario, fontWeight: '500' },
-
-  // Inputs Minimalistas (Linha em baixo)
-  fieldLabel: { fontSize: 13, fontWeight: '700', color: CORES.texto, marginTop: 24, marginBottom: 8 },
+  fieldLabel: { fontSize: 13, fontWeight: '700', color: CORES.texto, marginTop: 20, marginBottom: 8 },
   fieldBox: { flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', paddingBottom: 10 },
   fieldInput: { flex: 1, fontSize: 15, color: CORES.texto, paddingVertical: 4 },
   
   erroBox: { marginTop: 12 },
   erroTexto: { fontSize: 13, color: CORES.erro, fontWeight: '500' },
 
-  // Exibir Código
-  successIcone: { width: 72, height: 72, borderRadius: 36, backgroundColor: CORES.branco, alignItems: 'center', justifyContent: 'center', marginBottom: 20, ...SOMBRA.media },
-  codigoRow: { flexDirection: 'row', gap: 12, justifyContent: 'center', marginVertical: 30 },
-  codigoDigito: { width: 45, height: 55, borderRadius: 14, backgroundColor: '#FFF6F6', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: CORES.primaria },
+  successIcone: { width: 72, height: 72, borderRadius: 36, backgroundColor: CORES.primariaClara, alignItems: 'center', justifyContent: 'center', marginBottom: 20, ...SOMBRA.media },
+  codigoRow: { flexDirection: 'row', gap: 12, justifyContent: 'center', marginVertical: 20 },
+  codigoDigito: { width: 45, height: 55, borderRadius: 14, backgroundColor: CORES.primariaClara, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: CORES.primaria },
   codigoDigitoTexto: { fontSize: 24, fontWeight: '800', color: CORES.primaria },
 
-  // PIN Idoso
-  pinInput: { width: '80%', alignSelf: 'center', backgroundColor: '#F9FAFB', borderRadius: 20, borderWidth: 1, borderColor: CORES.borda, paddingVertical: 20, fontSize: 28, fontWeight: '800', color: CORES.texto, letterSpacing: 8, marginTop: 20 },
+  pinInput: { width: '80%', alignSelf: 'center', backgroundColor: '#F9FAFB', borderRadius: 20, borderWidth: 1, borderColor: CORES.borda, paddingVertical: 20, fontSize: 28, fontWeight: '800', color: CORES.texto, letterSpacing: 8, marginTop: 10 },
 });
