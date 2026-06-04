@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, RefreshControl, Modal, Dimensions
+  TextInput, Alert, RefreshControl, Modal, Dimensions, Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -57,12 +57,76 @@ export default function FamiliarScreen({ navigation }) {
   const carregarMedicamentos = async () => { try { setMedicamentos(await listarMedicamentos()); } catch {} };
   const carregarConfig = async () => { try { const d = await buscarConfiguracoes(); setConfig(d); setIntervalo(String(d.checkin_interval_hours)); setNomeContato(d.emergency_contact_name); setTelefone(d.emergency_contact_phone); } catch {} };
 
-  const handleSair = () => { Alert.alert('Sair', 'Voltar à tela de acesso?', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Sair', style: 'destructive', onPress: async () => { await encerrarSessao(); navigation.replace('Onboarding'); } }]); };
+  const handleSair = async () => {
+    console.log("[Sair - Passo 1] Botão de sair clicado! Plataforma:", Platform.OS);
+    
+    try {
+      if (Platform.OS === 'web') {
+        console.log("[Sair - Passo 2] A tentar abrir o alerta da Web...");
+        const confirmar = window.confirm('Sair: Voltar à tela de acesso?');
+        
+        console.log("[Sair - Passo 3] Utilizador confirmou?", confirmar);
+        
+        if (confirmar) {
+          console.log("[Sair - Passo 4] A limpar a sessão local...");
+          await encerrarSessao();
+          
+          console.log("[Sair - Passo 5] A redirecionar para o Onboarding...");
+          // Mudámos de replace para navigate, pois na web o replace por vezes bloqueia dependendo do tipo de navegação
+          navigation.navigate('Onboarding'); 
+        }
+      } else {
+        Alert.alert('Sair', 'Voltar à tela de acesso?', [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Sair', style: 'destructive', onPress: async () => { 
+              await encerrarSessao(); 
+              navigation.replace('Onboarding'); 
+            } 
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error("❌ [ERRO AO SAIR]:", error);
+    }
+  };
   const handleAdicionarMed = async () => {
-    if (!nomeMed.trim() || !dosagemMed.trim()) return;
+    console.log("[Passo 1] Botão de adicionar clicado!");
+    
+    if (!nomeMed.trim() || !dosagemMed.trim()) {
+      console.log("[Passo 2] Cancelado: Campos de nome ou dosagem estavam vazios.");
+      Alert.alert('Atenção', 'Preencha o nome e a dosagem do medicamento antes de salvar.');
+      return;
+    }
+
+    console.log("[Passo 3] Enviando requisição para o backend...", { 
+      nome: nomeMed, 
+      dosagem: dosagemMed, 
+      horario: horarioMed 
+    });
+    
     setSalvandoMed(true);
-    try { const novo = await criarMedicamento(nomeMed, dosagemMed, horarioMed); setMedicamentos(p => [...p, novo]); setModalMed(false); } catch {}
-    setSalvandoMed(false);
+    
+    try { 
+      const novo = await criarMedicamento(nomeMed, dosagemMed, horarioMed); 
+      console.log("[Passo 4] Sucesso! Backend devolveu:", novo);
+      
+      setMedicamentos(p => [...p, novo]); 
+      setModalMed(false); 
+      
+      // Limpa os campos para o próximo medicamento
+      setNomeMed('');
+      setDosagemMed('');
+      setHorarioMed('08:00');
+    } catch (error) {
+      console.log("[ERRO] Falha ao comunicar com o backend!");
+      console.log("Mensagem:", error.message);
+      if (error.response) {
+        console.log("Detalhes da recusa do backend:", error.response.data);
+      }
+      Alert.alert('Erro de Conexão', 'Não foi possível salvar. Verifique se o servidor está ligado e o IP está correto.');
+    } finally {
+      setSalvandoMed(false);
+    }
   };
   const handleRemoverMed = (med) => { Alert.alert('Remover', `Remover ${med.name}?`, [{ text: 'Cancelar' }, { text: 'Remover', style: 'destructive', onPress: async () => { await removerMedicamento(med.id); setMedicamentos(p => p.filter(m => m.id !== med.id)); }}]); };
   const handleResolverAlerta = async (a) => { await resolverAlerta(a.id); setAlertas(p => p.map(x => x.id === a.id ? { ...x, resolved: true } : x)); };

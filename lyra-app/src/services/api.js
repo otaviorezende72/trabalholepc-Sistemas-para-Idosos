@@ -3,8 +3,8 @@ import axios from 'axios';
 // Trocar pelo IP do seu computador onde o FastAPI roda
 // Celular físico na mesma rede Wi-Fi: use o IP local (ex: 192.168.1.100)
 // Emulador Android: use 10.0.2.2
-export const BASE_URL = 'http://172.20.208.1:8000';
-export const WS_URL = `ws://172.20.208.1:8000/ws`;
+export const BASE_URL = 'http://192.168.0.11:8000';
+export const WS_URL = `ws://192.168.0.11:8000/ws`;
 
 const api = axios.create({
   baseURL: BASE_URL,
