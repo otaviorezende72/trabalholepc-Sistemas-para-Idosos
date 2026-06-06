@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Animated, Vibration, Alert, Dimensions, Keyboard, Platform
+  ScrollView, Animated, Vibration, Alert, Dimensions, Keyboard, Platform, Modal, TextInput
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { CORES, SOMBRA } from '../theme';
 import { falar, pedirPermissaoMicrofone, confirmarPorVoz, negarPorVoz } from '../services/voz';
-import { listarMedicamentos, criarAlerta } from '../services/api';
+import {
+  listarMedicamentos,
+  criarAlerta,
+  criarMedicamento
+} from '../services/api';
 import { wsService } from '../services/websocket';
 import { encerrarSessao } from '../services/armazenamento';
 
@@ -20,6 +24,11 @@ export default function IdosoScreen({ navigation }) {
   const [sosAtivado, setSosAtivado] = useState(false);
   
   const pulsoSos = useRef(new Animated.Value(1)).current;
+  const [modalMed, setModalMed] = useState(false);
+  const [nomeMed, setNomeMed] = useState('');
+  const [dosagemMed, setDosagemMed] = useState('');
+  const [horarioMed, setHorarioMed] = useState('08:00');
+  const [salvandoMed, setSalvandoMed] = useState(false);
 
   useEffect(() => { inicializar(); return () => wsService.desconectar(); }, []);
   useEffect(() => {
@@ -38,6 +47,45 @@ export default function IdosoScreen({ navigation }) {
   };
 
   const handleConfirmar = async (med) => { try { await confirmarPorVoz(med.id); await carregarMedicamentos(); setMedAtivo(null); } catch { falar('Tente de novo.'); } };
+  const handleAdicionarMed = async () => {
+  if (!nomeMed.trim() || !dosagemMed.trim()) {
+    Alert.alert(
+      'Atenção',
+      'Preencha o nome e a dosagem do medicamento.'
+    );
+    return;
+  }
+
+  setSalvandoMed(true);
+
+  try {
+  const horarioFormatado = horarioMed.length === 5
+    ? `${horarioMed}:00`
+    : horarioMed;
+
+  const novo = await criarMedicamento(
+    nomeMed,
+    dosagemMed,
+    horarioFormatado
+  );
+
+  setMedicamentos((p) => [...p, { ...novo, active: true }]);
+
+  setModalMed(false);
+  setNomeMed('');
+  setDosagemMed('');
+  setHorarioMed('08:00');
+} catch (err) {
+  console.log("❌ ERRO:", err);
+  console.log("❌ RESPONSE:", err?.response?.data);
+  console.log("❌ STATUS:", err?.response?.status);
+
+  Alert.alert(
+    "Erro ao salvar",
+    JSON.stringify(err?.response?.data || err.message)
+  );
+}
+};
   const handleTocarMed = async (med) => { setMedAtivo(med); setVozAtiva(true); await falar(med.name + '. Você já tomou?'); setVozAtiva(false); };
 
   const jaConfirmado = (med) => med.status === 'tomado';
@@ -45,23 +93,31 @@ export default function IdosoScreen({ navigation }) {
   return (
     <SafeAreaView style={s.safe}>
       {/* Header CliniQ Minimal */}
-      <View style={s.header}>
-        <View style={s.iconBtnPlaceholder} />
-        <Text style={s.headerTitle}>Meu Cuidado</Text>
-        <TouchableOpacity style={s.iconBtn} onPress={handleSair}><Feather name="log-out" size={20} color={CORES.primaria} /></TouchableOpacity>
-      </View>
+      
+      <View style={s.headerRow}>
+        <View style={{ width: 44 }} />
 
+        <Text style={s.cuidadoTitle}>Cuidando de Mim</Text>
+
+        <TouchableOpacity onPress={handleSair} style={s.sairBtn}>
+          <Feather name="log-out" size={22} color={CORES.primaria} />
+        </TouchableOpacity>
+      </View>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         {/* SOS - Circular Card */}
-        <View style={s.sosSection}>
-          <Animated.View style={{ transform: [{ scale: pulsoSos }] }}>
-            <TouchableOpacity style={[s.sosBtn, sosAtivado && s.sosBtnAtivo]} onPress={handleSos} activeOpacity={0.85}>
-              <View style={s.sosInner}>
-                <Feather name="alert-circle" size={40} color={CORES.branco} />
-                <Text style={s.sosTitulo}>Ajuda</Text>
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
+        <View style={s.helpSection}>
+          <Text style={s.helpDescription}>
+            Em caso de emergência peça por ajuda ou clique no botão abaixo
+          </Text>
+
+          <TouchableOpacity
+            style={s.helpButton}
+            onPress={handleSos}
+            activeOpacity={0.85}
+          >
+            <Feather name="alert-triangle" size={24} color={CORES.branco} />
+            <Text style={s.helpText}>AJUDA</Text>
+          </TouchableOpacity>
         </View>
 
         {medAtivo && (
@@ -76,7 +132,13 @@ export default function IdosoScreen({ navigation }) {
           </View>
         )}
 
-        <Text style={s.sectionTitle}>Remédios de hoje</Text>
+        <View style={s.rotinaSection}>
+          <Text style={s.sectionTitle}>Rotina do Dia</Text>
+
+          <Text style={s.rotinaSub}>
+            Suas tarefas programadas para hoje
+          </Text>
+        </View>
         {medicamentos.map(med => (
           <TouchableOpacity key={med.id} style={[s.medCard, jaConfirmado(med) && s.medCardOk]} onPress={() => !jaConfirmado(med) && handleTocarMed(med)} activeOpacity={0.8}>
             <View style={[s.medCardIcon, jaConfirmado(med) && s.medCardIconOk]}><Feather name={jaConfirmado(med) ? 'check' : 'plus'} size={24} color={jaConfirmado(med) ? CORES.sucesso : CORES.primaria} /></View>
@@ -87,6 +149,75 @@ export default function IdosoScreen({ navigation }) {
           </TouchableOpacity>
         ))}
       </ScrollView>
+      <View style={s.bottomButtonContainer}>
+        <View style={s.fabContainer}>
+  
+          <TouchableOpacity
+            style={s.micBtn}
+            onPress={() => console.log('capturar áudio')}
+          >
+            <Feather name="mic" size={20} color={CORES.branco} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={s.iconBtnAction}
+            onPress={() => setModalMed(true)}
+          >
+            <Feather name="plus" size={20} color={CORES.branco} />
+          </TouchableOpacity>
+
+        </View>
+      </View>
+      <Modal visible={modalMed} animationType="slide" transparent>
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <View style={s.modalDrag} />
+
+            <Text style={s.modalTitle}>Novo Medicamento</Text>
+
+            <View style={s.field}>
+              <Text style={s.fieldTxt}>Nome</Text>
+              <TextInput
+                style={s.input}
+                value={nomeMed}
+                onChangeText={setNomeMed}
+              />
+            </View>
+
+            <View style={s.field}>
+              <Text style={s.fieldTxt}>Dosagem</Text>
+              <TextInput
+                style={s.input}
+                value={dosagemMed}
+                onChangeText={setDosagemMed}
+              />
+            </View>
+
+            <View style={s.field}>
+              <Text style={s.fieldTxt}>Horário</Text>
+              <TextInput
+                style={s.input}
+                value={horarioMed}
+                onChangeText={setHorarioMed}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={s.btnPrimary}
+              onPress={handleAdicionarMed}
+            >
+              <Text style={s.btnText}>Adicionar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[s.btnCancel]}
+              onPress={() => setModalMed(false)}
+            >
+              <Text style={s.btnCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -126,4 +257,182 @@ const s = StyleSheet.create({
   simBtnTxt: { color: CORES.branco, fontSize: 18, fontWeight: '700' },
   naoBtn: { flex: 1, backgroundColor: CORES.secundaria, borderRadius: 20, paddingVertical: 18, alignItems: 'center' },
   naoBtnTxt: { color: CORES.textoSecundario, fontSize: 18, fontWeight: '700' },
+
+  headerRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginTop: 20,
+},
+
+bottomButtonContainer: {
+  position: 'absolute',
+  bottom: 30,
+  alignSelf: 'center',
+},
+
+iconBtnAction: {
+  width: 60,
+  height: 60,
+  borderRadius: 30,
+  backgroundColor: CORES.primaria,
+  alignItems: 'center',
+  justifyContent: 'center',
+  ...SOMBRA.pequena,
+},
+
+modalOverlay: {
+  flex: 1,
+  backgroundColor: 'rgba(0,0,0,0.3)',
+  justifyContent: 'flex-end',
+},
+
+modalCard: {
+  backgroundColor: CORES.branco,
+  borderTopLeftRadius: 32,
+  borderTopRightRadius: 32,
+  padding: 24,
+  paddingBottom: 40,
+},
+
+modalDrag: {
+  width: 40,
+  height: 4,
+  borderRadius: 2,
+  backgroundColor: CORES.borda,
+  alignSelf: 'center',
+  marginBottom: 20,
+},
+
+modalTitle: {
+  fontSize: 20,
+  fontWeight: '700',
+  color: CORES.texto,
+  marginBottom: 24,
+},
+
+field: {
+  marginBottom: 16,
+},
+
+fieldTxt: {
+  fontSize: 13,
+  fontWeight: '600',
+  color: CORES.textoSecundario,
+  marginBottom: 8,
+},
+
+input: {
+  backgroundColor: CORES.secundaria,
+  borderRadius: 16,
+  padding: 16,
+  fontSize: 15,
+  color: CORES.texto,
+},
+
+btnPrimary: {
+  backgroundColor: CORES.primaria,
+  borderRadius: 18,
+  padding: 18,
+  alignItems: 'center',
+},
+
+btnText: {
+  color: CORES.branco,
+  fontSize: 16,
+  fontWeight: '600',
+},
+
+btnCancel: {
+  marginTop: 12,
+  alignItems: 'center',
+},
+
+btnCancelText: {
+  color: CORES.textoSecundario,
+  fontSize: 16,
+},
+
+helpSection: {
+  marginHorizontal: 24,
+  marginTop: 20,
+  alignItems: 'center',
+},
+
+helpDescription: {
+  fontSize: 14,
+  color: CORES.textoSecundario,
+  textAlign: 'center',
+  marginBottom: 12,
+  lineHeight: 20,
+},
+
+helpButton: {
+  width: '100%',
+  backgroundColor: '#b82a2a',
+  borderRadius: 20,
+  paddingVertical: 18,
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexDirection: 'row',
+  gap: 10,
+},
+
+helpText: {
+  color: CORES.branco,
+  fontSize: 18,
+  fontWeight: '800',
+},
+
+rotinaSub: {
+  fontSize: 14,
+  color: CORES.textoSecundario,
+  marginBottom: 12,
+  marginTop: -8,
+},
+
+rotinaSection: {
+  marginTop: 40,
+  marginBottom: 10,
+  alignItems: 'center', // 👈 isso centraliza tudo dentro
+},
+
+fabContainer: {
+  flexDirection: 'row',
+  gap: 12,
+},
+
+micBtn: {
+  width: 60,
+  height: 60,
+  borderRadius: 30,
+  backgroundColor: '#3B82F6', // azul voz
+  alignItems: 'center',
+  justifyContent: 'center',
+  ...SOMBRA.pequena,
+},
+
+headerRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  paddingHorizontal: 24,
+  marginTop: 20,
+},
+
+cuidadoTitle: {
+  fontSize: 22,
+  fontWeight: '700',
+  color: '#000',
+  textAlign: 'center',
+},
+
+sairBtn: {
+  width: 44,
+  height: 44,
+  borderRadius: 22,
+  backgroundColor: CORES.secundaria,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
 });
