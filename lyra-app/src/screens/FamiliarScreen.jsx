@@ -33,6 +33,10 @@ export default function FamiliarScreen({ navigation }) {
   const [dosagemMed, setDosagemMed] = useState('');
   const [horarioMed, setHorarioMed] = useState('08:00');
   const [salvandoMed, setSalvandoMed] = useState(false);
+  const [tarefas, setTarefas] = useState([]);
+  const [modalTarefa, setModalTarefa] = useState(false);
+  const [descricaoTarefa, setDescricaoTarefa] = useState('');
+  const [horarioTarefa, setHorarioTarefa] = useState('08:00');
   const [intervalo, setIntervalo] = useState('12');
   const [nomeContato, setNomeContato] = useState('');
   const [telefone, setTelefone] = useState('');
@@ -128,6 +132,24 @@ export default function FamiliarScreen({ navigation }) {
       setSalvandoMed(false);
     }
   };
+  const handleAdicionarTarefa = () => {
+    if (!descricaoTarefa.trim()) {
+      Alert.alert('Atenção', 'Informe a descrição da tarefa.');
+      return;
+    }
+
+    const nova = {
+      id: Date.now(),
+      descricao: descricaoTarefa,
+      horario: horarioTarefa,
+    };
+
+    setTarefas(prev => [...prev, nova]);
+
+    setDescricaoTarefa('');
+    setHorarioTarefa('08:00');
+    setModalTarefa(false);
+  };
   const handleRemoverMed = (med) => { Alert.alert('Remover', `Remover ${med.name}?`, [{ text: 'Cancelar' }, { text: 'Remover', style: 'destructive', onPress: async () => { await removerMedicamento(med.id); setMedicamentos(p => p.filter(m => m.id !== med.id)); }}]); };
   const handleResolverAlerta = async (a) => { await resolverAlerta(a.id); setAlertas(p => p.map(x => x.id === a.id ? { ...x, resolved: true } : x)); };
   
@@ -150,7 +172,15 @@ export default function FamiliarScreen({ navigation }) {
 
       <ScrollView style={s.scroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={recarregando} onRefresh={carregarTudo} />}>
         {aba === 'inicio'   && <AbaInicio nao={naoResolvidos} conf={confirmados} meds={medicamentos} onVer={() => setAba('alertas')} />}
-        {aba === 'remedios' && <AbaRemedios meds={medicamentos} onAdd={() => setModalMed(true)} onRem={handleRemoverMed} />}
+        {aba === 'remedios' &&
+          <AbaRemedios
+            meds={medicamentos}
+            tarefas={tarefas}
+            onAdd={() => setModalMed(true)}
+            onAddTarefa={() => setModalTarefa(true)}
+            onRem={handleRemoverMed}
+          />
+        }        
         {aba === 'alertas'  && <AbaAlertas alertas={alertas} onRes={handleResolverAlerta} />}
         {aba === 'config'   && <AbaConfig int={intervalo} setInt={setIntervalo} nom={nomeContato} setNom={setNomeContato} tel={telefone} setTel={setTelefone} cod={codigoAcesso} onSalvar={() => {}} />}
         <View style={{height: 100}} />
@@ -183,6 +213,49 @@ export default function FamiliarScreen({ navigation }) {
             <View style={s.field}><Text style={s.fieldTxt}>Horário</Text><TextInput style={s.input} value={horarioMed} onChangeText={setHorarioMed} /></View>
             <TouchableOpacity style={s.btnPrimary} onPress={handleAdicionarMed}><Text style={s.btnText}>Adicionar</Text><Feather name="arrow-up-right" size={18} color={CORES.branco}/></TouchableOpacity>
             <TouchableOpacity style={[s.btnPrimary, {backgroundColor: 'transparent', marginTop: 10, shadowOpacity:0}]} onPress={() => setModalMed(false)}><Text style={[s.btnText, {color: CORES.textoSecundario}]}>Cancelar</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      <Modal visible={modalTarefa} animationType="slide" transparent>
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <View style={s.modalDrag} />
+
+            <Text style={s.modalTitle}>Nova Tarefa</Text>
+
+            <View style={s.field}>
+              <Text style={s.fieldTxt}>Descrição</Text>
+              <TextInput
+                style={s.input}
+                value={descricaoTarefa}
+                onChangeText={setDescricaoTarefa}
+              />
+            </View>
+
+            <View style={s.field}>
+              <Text style={s.fieldTxt}>Horário</Text>
+              <TextInput
+                style={s.input}
+                value={horarioTarefa}
+                onChangeText={setHorarioTarefa}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={s.btnPrimary}
+              onPress={handleAdicionarTarefa}
+            >
+              <Text style={s.btnText}>Adicionar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[s.btnPrimary, { backgroundColor: 'transparent', marginTop: 10 }]}
+              onPress={() => setModalTarefa(false)}
+            >
+              <Text style={[s.btnText, { color: CORES.textoSecundario }]}>
+                Cancelar
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -219,8 +292,14 @@ function AbaInicio({ nao, conf, meds, onVer }) {
   );
 }
 
-function AbaRemedios({ meds, onAdd, onRem }) {
-  return (
+function AbaRemedios({
+    meds,
+    tarefas,
+    onAdd,
+    onAddTarefa,
+    onRem
+  }) 
+  {  return (
     <View style={s.secao}>
       <View style={s.headerRow}>
         <Text style={s.sectionTitle}>Prescrições</Text>
@@ -231,6 +310,29 @@ function AbaRemedios({ meds, onAdd, onRem }) {
           <View style={s.medRowIcon}><Feather name="file-text" size={18} color={CORES.primaria} /></View>
           <View style={{ flex: 1 }}><Text style={s.medRowName}>{m.name}</Text><Text style={s.medRowTime}>{m.dosage} às {m.time}</Text></View>
           <TouchableOpacity onPress={() => onRem(m)} style={s.delBtn}><Feather name="trash" size={16} color={CORES.erro} /></TouchableOpacity>
+        </View>
+      ))}
+      <View style={s.headerRow}>
+        <Text style={s.sectionTitle}>Tarefas</Text>
+
+        <TouchableOpacity
+          style={s.iconBtnAction}
+          onPress={onAddTarefa}
+        >
+          <Feather name="plus" size={18} color={CORES.branco} />
+        </TouchableOpacity>
+      </View>
+
+      {tarefas.map(t => (
+        <View key={t.id} style={s.medRowCard}>
+          <View style={s.medRowIcon}>
+            <Feather name="check-square" size={18} color={CORES.primaria} />
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text style={s.medRowName}>{t.descricao}</Text>
+            <Text style={s.medRowTime}>{t.horario}</Text>
+          </View>
         </View>
       ))}
     </View>
@@ -278,13 +380,34 @@ const s = StyleSheet.create({
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   iconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: CORES.branco, alignItems: 'center', justifyContent: 'center', ...SOMBRA.pequena },
   iconBtnAction: { width: 40, height: 40, borderRadius: 20, backgroundColor: CORES.primaria, alignItems: 'center', justifyContent: 'center', ...SOMBRA.pequena },
-  titleBox: { marginTop: 24 },
-  headerTitle: { fontSize: 28, fontWeight: '700', color: CORES.primaria },
-  headerGreeting: { fontSize: 15, color: CORES.textoSecundario, marginTop: 4 },
+  titleBox: {
+  marginTop: 24,
+  alignItems: 'center',
+},
+
+headerTitle: {
+  fontSize: 28,
+  fontWeight: '700',
+  color: CORES.primaria,
+  textAlign: 'center',
+},
+
+headerGreeting: {
+  fontSize: 15,
+  color: CORES.textoSecundario,
+  marginTop: 4,
+  textAlign: 'center',
+},
   
   scroll: { flex: 1 },
   secao: { paddingHorizontal: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: CORES.texto, marginVertical: 16 },
+  sectionTitle: {
+  fontSize: 18,
+  fontWeight: '700',
+  color: CORES.texto,
+  marginVertical: 16,
+  textAlign: 'center',
+},
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 
   // Stats CliniQ style
