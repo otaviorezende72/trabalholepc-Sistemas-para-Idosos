@@ -31,17 +31,29 @@ export default function FamiliarScreen({ navigation }) {
   // States do Form
   const [nomeMed, setNomeMed] = useState('');
   const [dosagemMed, setDosagemMed] = useState('');
-  const [horarioMed, setHorarioMed] = useState('08:00');
+  const [horariosMed, setHorariosMed] = useState(['08:00']);
+  const [diasMed, setDiasMed] = useState([]);
+  const [diasSemana, setDiasSemana] = useState([]);
   const [salvandoMed, setSalvandoMed] = useState(false);
   const [tarefas, setTarefas] = useState([]);
   const [modalTarefa, setModalTarefa] = useState(false);
   const [descricaoTarefa, setDescricaoTarefa] = useState('');
-  const [horarioTarefa, setHorarioTarefa] = useState('08:00');
+  const [horariosTarefa, setHorariosTarefa] = useState(['08:00']);
+  const [diasTarefa, setDiasTarefa] = useState([]);
   const [intervalo, setIntervalo] = useState('12');
   const [nomeContato, setNomeContato] = useState('');
   const [telefone, setTelefone] = useState('');
   const [codigoAcesso, setCodigoAcesso] = useState('');
   const [nomeUsuario, setNomeUsuario] = useState('');
+  const DIAS_SEMANA = [
+  'Seg',
+  'Ter',
+  'Qua',
+  'Qui',
+  'Sex',
+  'Sáb',
+  'Dom',
+];
 
   useEffect(() => { carregarTudo(); conectarWs(); return () => wsService.desconectar(); }, []);
 
@@ -156,6 +168,22 @@ export default function FamiliarScreen({ navigation }) {
   const naoResolvidos = alertas.filter(a => !a.resolved).length;
   const confirmados = medicamentos.filter(m => m.status === 'tomado').length;
 
+  const toggleDiaMed = (dia) => {
+    setDiasMed(prev =>
+      prev.includes(dia)
+        ? prev.filter(d => d !== dia)
+        : [...prev, dia]
+    );
+  };
+
+  const toggleDiaTarefa = (dia) => {
+    setDiasTarefa(prev =>
+      prev.includes(dia)
+        ? prev.filter(d => d !== dia)
+        : [...prev, dia]
+    );
+  };
+
   return (
     <SafeAreaView style={s.safe}>
       {/* Header CliniQ style - Fundo suave, botões de ação arredondados */}
@@ -210,7 +238,63 @@ export default function FamiliarScreen({ navigation }) {
             <Text style={s.modalTitle}>Novo Medicamento</Text>
             <View style={s.field}><Text style={s.fieldTxt}>Nome</Text><TextInput style={s.input} value={nomeMed} onChangeText={setNomeMed} /></View>
             <View style={s.field}><Text style={s.fieldTxt}>Dosagem</Text><TextInput style={s.input} value={dosagemMed} onChangeText={setDosagemMed} /></View>
-            <View style={s.field}><Text style={s.fieldTxt}>Horário</Text><TextInput style={s.input} value={horarioMed} onChangeText={setHorarioMed} /></View>
+            <Text style={s.fieldTxt}>Dias da Semana</Text>
+
+            <View style={s.daysContainer}>
+              {DIAS_SEMANA.map(dia => (
+                <TouchableOpacity
+                  key={dia}
+                  style={[
+                    s.dayChip,
+                    diasMed.includes(dia) && s.dayChipSelected
+                  ]}
+                  onPress={() => toggleDiaMed(dia)}
+                >
+                  <Text
+                    style={
+                      diasMed.includes(dia)
+                        ? s.dayChipTextSelected
+                        : s.dayChipText
+                    }
+                  >
+                    {dia}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={[s.fieldTxt, { marginTop: 20 }]}>
+              Horários
+            </Text>
+
+            {horariosMed.map((hora, index) => (
+              <TextInput
+                key={index}
+                style={[s.input, { marginBottom: 10 }]}
+                value={hora}
+                onChangeText={(texto) => {
+                  const copia = [...horariosMed];
+                  copia[index] = texto;
+                  setHorariosMed(copia);
+                }}
+              />
+            ))}
+
+            <TouchableOpacity
+              style={s.addTimeBtn}
+              onPress={() =>
+                setHorariosMed([...horariosMed, '08:00'])
+              }
+            >
+              <Feather
+                name="plus"
+                size={16}
+                color={CORES.primaria}
+              />
+              <Text style={s.addTimeText}>
+                Adicionar horário
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity style={s.btnPrimary} onPress={handleAdicionarMed}><Text style={s.btnText}>Adicionar</Text><Feather name="arrow-up-right" size={18} color={CORES.branco}/></TouchableOpacity>
             <TouchableOpacity style={[s.btnPrimary, {backgroundColor: 'transparent', marginTop: 10, shadowOpacity:0}]} onPress={() => setModalMed(false)}><Text style={[s.btnText, {color: CORES.textoSecundario}]}>Cancelar</Text></TouchableOpacity>
           </View>
@@ -232,14 +316,63 @@ export default function FamiliarScreen({ navigation }) {
               />
             </View>
 
-            <View style={s.field}>
-              <Text style={s.fieldTxt}>Horário</Text>
-              <TextInput
-                style={s.input}
-                value={horarioTarefa}
-                onChangeText={setHorarioTarefa}
-              />
+            <Text style={s.fieldTxt}>Dias da Semana</Text>
+
+            <View style={s.daysContainer}>
+              {DIAS_SEMANA.map(dia => (
+                <TouchableOpacity
+                  key={dia}
+                  style={[
+                    s.dayChip,
+                    diasTarefa.includes(dia) && s.dayChipSelected
+                  ]}
+                  onPress={() => toggleDiaTarefa(dia)}
+                >
+                  <Text
+                    style={
+                      diasTarefa.includes(dia)
+                        ? s.dayChipTextSelected
+                        : s.dayChipText
+                    }
+                  >
+                    {dia}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
+
+            <Text style={[s.fieldTxt, { marginTop: 20 }]}>
+              Horários
+            </Text>
+
+            {horariosTarefa.map((hora, index) => (
+              <TextInput
+                key={index}
+                style={[s.input, { marginBottom: 10 }]}
+                value={hora}
+                onChangeText={(texto) => {
+                  const copia = [...horariosTarefa];
+                  copia[index] = texto;
+                  setHorariosTarefa(copia);
+                }}
+              />
+            ))}
+
+            <TouchableOpacity
+              style={s.addTimeBtn}
+              onPress={() =>
+                setHorariosTarefa([...horariosTarefa, '08:00'])
+              }
+            >
+              <Feather
+                name="plus"
+                size={16}
+                color={CORES.primaria}
+              />
+              <Text style={s.addTimeText}>
+                Adicionar horário
+              </Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={s.btnPrimary}
@@ -457,4 +590,46 @@ headerGreeting: {
   modalCard: { backgroundColor: CORES.branco, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40 },
   modalDrag: { width: 40, height: 4, borderRadius: 2, backgroundColor: CORES.borda, alignSelf: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: '700', color: CORES.texto, marginBottom: 24 },
+
+  daysContainer: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  gap: 8,
+  marginTop: 10,
+},
+
+dayChip: {
+  paddingHorizontal: 12,
+  paddingVertical: 8,
+  borderRadius: 12,
+  backgroundColor: CORES.secundaria,
+},
+
+dayChipSelected: {
+  backgroundColor: CORES.primaria,
+},
+
+dayChipText: {
+  color: CORES.texto,
+},
+
+dayChipTextSelected: {
+  color: CORES.branco,
+  fontWeight: '600',
+},
+
+addTimeBtn: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginTop: 20,
+  marginBottom: 30, // 👈 espaço antes do botão Adicionar
+
+},
+
+addTimeText: {
+  color: CORES.primaria,
+  fontWeight: '600',
+  marginLeft: 6,
+},
 });
