@@ -170,7 +170,22 @@ export default function FamiliarScreen({ navigation }) {
 };
   const handleRemoverMed = (med) => { Alert.alert('Remover', `Remover ${med.name}?`, [{ text: 'Cancelar' }, { text: 'Remover', style: 'destructive', onPress: async () => { await removerMedicamento(med.id); setMedicamentos(p => p.filter(m => m.id !== med.id)); }}]); };
   const handleResolverAlerta = async (a) => { await resolverAlerta(a.id); setAlertas(p => p.map(x => x.id === a.id ? { ...x, resolved: true } : x)); };
-  
+  const handleRemoverTarefa = (t) => {
+    Alert.alert(
+      'Excluir tarefa',
+      `Deseja realmente excluir "${t.descricao}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => {
+            setTarefas(prev => prev.filter(item => item.id !== t.id));
+          }
+        }
+      ]
+    );
+  };
   const naoResolvidos = alertas.filter(a => !a.resolved).length;
   const confirmados = medicamentos.filter(m => m.status === 'tomado').length;
   const rotinaHoje = [
@@ -266,8 +281,9 @@ export default function FamiliarScreen({ navigation }) {
             onAdd={() => setModalMed(true)}
             onAddTarefa={() => setModalTarefa(true)}
             onRem={handleRemoverMed}
+            onRemTarefa={handleRemoverTarefa}
           />
-        }        
+        }
         {aba === 'alertas'  && <AbaAlertas alertas={alertas} onRes={handleResolverAlerta} />}
         {aba === 'config'   && <AbaConfig int={intervalo} setInt={setIntervalo} nom={nomeContato} setNom={setNomeContato} tel={telefone} setTel={setTelefone} cod={codigoAcesso} onSalvar={() => {}} />}
         <View style={{height: 100}} />
@@ -527,8 +543,9 @@ function AbaRemedios({
     tarefas,
     onAdd,
     onAddTarefa,
-    onRem
-  }) 
+    onRem,
+    onRemTarefa
+})
   {  return (
     <View style={s.secao}>
       <View style={s.headerRow}>
@@ -570,6 +587,14 @@ function AbaRemedios({
               {t.dias?.join(', ')}
             </Text>
           </View>
+
+          <TouchableOpacity
+            onPress={() => onRemTarefa(t)}
+            style={s.delBtn}
+          >
+            <Feather name="trash-2" size={18} color={CORES.erro} />
+          </TouchableOpacity>
+
         </View>
     ))}
     </View>
