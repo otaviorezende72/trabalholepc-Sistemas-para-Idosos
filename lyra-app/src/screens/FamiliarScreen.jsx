@@ -117,13 +117,17 @@ export default function FamiliarScreen({ navigation }) {
     console.log("[Passo 3] Enviando requisição para o backend...", { 
       nome: nomeMed, 
       dosagem: dosagemMed, 
-      horario: horarioMed 
+      horario: horariosMed[0]
     });
     
     setSalvandoMed(true);
     
     try { 
-      const novo = await criarMedicamento(nomeMed, dosagemMed, horarioMed); 
+      const novo = await criarMedicamento(
+        nomeMed,
+        dosagemMed,
+        horariosMed[0]
+      );
       console.log("[Passo 4] Sucesso! Backend devolveu:", novo);
       
       setMedicamentos(p => [...p, novo]); 
@@ -132,7 +136,7 @@ export default function FamiliarScreen({ navigation }) {
       // Limpa os campos para o próximo medicamento
       setNomeMed('');
       setDosagemMed('');
-      setHorarioMed('08:00');
+      setHorariosMed(['08:00']);
     } catch (error) {
       console.log("[ERRO] Falha ao comunicar com o backend!");
       console.log("Mensagem:", error.message);
@@ -145,28 +149,48 @@ export default function FamiliarScreen({ navigation }) {
     }
   };
   const handleAdicionarTarefa = () => {
-    if (!descricaoTarefa.trim()) {
-      Alert.alert('Atenção', 'Informe a descrição da tarefa.');
-      return;
-    }
+  if (!descricaoTarefa.trim()) {
+    Alert.alert('Atenção', 'Informe a descrição da tarefa.');
+    return;
+  }
 
-    const nova = {
-      id: Date.now(),
-      descricao: descricaoTarefa,
-      horario: horarioTarefa,
-    };
-
-    setTarefas(prev => [...prev, nova]);
-
-    setDescricaoTarefa('');
-    setHorarioTarefa('08:00');
-    setModalTarefa(false);
+  const nova = {
+    id: Date.now(),
+    descricao: descricaoTarefa,
+    horarios: horariosTarefa,
+    dias: diasTarefa,
   };
+
+  setTarefas(prev => [...prev, nova]);
+
+  setDescricaoTarefa('');
+  setHorariosTarefa(['08:00']);
+  setDiasTarefa([]);
+  setModalTarefa(false);
+};
   const handleRemoverMed = (med) => { Alert.alert('Remover', `Remover ${med.name}?`, [{ text: 'Cancelar' }, { text: 'Remover', style: 'destructive', onPress: async () => { await removerMedicamento(med.id); setMedicamentos(p => p.filter(m => m.id !== med.id)); }}]); };
   const handleResolverAlerta = async (a) => { await resolverAlerta(a.id); setAlertas(p => p.map(x => x.id === a.id ? { ...x, resolved: true } : x)); };
   
   const naoResolvidos = alertas.filter(a => !a.resolved).length;
   const confirmados = medicamentos.filter(m => m.status === 'tomado').length;
+  const rotinaHoje = [
+    ...medicamentos.map(m => ({
+      id: `med-${m.id}`,
+      tipo: 'medicamento',
+      titulo: m.name,
+      horario: m.time || horariosMed[0] || '00:00',
+      concluido: m.status === 'tomado',
+      dosagem: m.dosage,
+    })),
+
+    ...tarefas.map(t => ({
+      id: `tar-${t.id}`,
+      tipo: 'tarefa',
+      titulo: t.descricao,
+      horario: t.horarios?.[0] || '00:00',
+      concluido: t.concluido || false,
+    })),
+  ].sort((a, b) => a.horario.localeCompare(b.horario));
 
   const toggleDiaMed = (dia) => {
     setDiasMed(prev =>
@@ -184,6 +208,34 @@ export default function FamiliarScreen({ navigation }) {
     );
   };
 
+  const toggleRotina = (item) => {
+    if (item.tipo === 'tarefa') {
+      setTarefas(prev =>
+        prev.map(t =>
+          `tar-${t.id}` === item.id
+            ? { ...t, concluido: !t.concluido }
+            : t
+        )
+      );
+    }
+
+    if (item.tipo === 'medicamento') {
+      setMedicamentos(prev =>
+        prev.map(m =>
+          `med-${m.id}` === item.id
+            ? {
+                ...m,
+                status:
+                  m.status === 'tomado'
+                    ? 'pendente'
+                    : 'tomado'
+              }
+            : m
+        )
+      );
+    }
+  };
+
   return (
     <SafeAreaView style={s.safe}>
       {/* Header CliniQ style - Fundo suave, botões de ação arredondados */}
@@ -199,7 +251,14 @@ export default function FamiliarScreen({ navigation }) {
       </View>
 
       <ScrollView style={s.scroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={recarregando} onRefresh={carregarTudo} />}>
-        {aba === 'inicio'   && <AbaInicio nao={naoResolvidos} conf={confirmados} meds={medicamentos} onVer={() => setAba('alertas')} />}
+        {aba === 'inicio'   && <AbaInicio
+          nao={naoResolvidos}
+          conf={confirmados}
+          meds={medicamentos}
+          rotina={rotinaHoje}
+          onToggle={toggleRotina}
+          onVer={() => setAba('alertas')}
+        />}
         {aba === 'remedios' &&
           <AbaRemedios
             meds={medicamentos}
@@ -396,7 +455,7 @@ export default function FamiliarScreen({ navigation }) {
   );
 }
 
-function AbaInicio({ nao, conf, meds, onVer }) {
+function AbaInicio({nao, conf, meds, rotina, onToggle, onVer}) {
   return (
     <View style={s.secao}>
       <View style={s.statsRow}>
@@ -412,13 +471,51 @@ function AbaInicio({ nao, conf, meds, onVer }) {
         </View>
       </View>
       <Text style={s.sectionTitle}>Rotina de Hoje</Text>
-      {meds.slice(0, 4).map(m => (
-        <View key={m.id} style={s.medRowCard}>
-          <View style={s.medRowIcon}><Feather name="heart" size={18} color={CORES.primaria} /></View>
-          <View style={{ flex: 1 }}><Text style={s.medRowName}>{m.name}</Text><Text style={s.medRowTime}>{m.time} • {m.dosage}</Text></View>
-          <View style={[s.statusBadge, m.status === 'tomado' ? { backgroundColor: CORES.primaria } : { backgroundColor: CORES.primariaClara }]}>
-            <Text style={[s.statusTxt, m.status === 'tomado' ? { color: CORES.branco } : { color: CORES.primaria }]}>{m.status === 'tomado' ? 'OK' : 'Pendente'}</Text>
+      {rotina.map(item => (
+        <View
+          key={item.id}
+          style={s.medRowCard}
+        >
+          <TouchableOpacity
+            onPress={() => onToggle(item)}
+            style={{
+              marginRight: 14,
+            }}
+          >
+            <Feather
+              name={
+                item.concluido
+                  ? 'check-square'
+                  : 'square'
+              }
+              size={24}
+              color={
+                item.concluido
+                  ? CORES.primaria
+                  : '#999'
+              }
+            />
+          </TouchableOpacity>
+
+          <View style={{ flex: 1 }}>
+            <Text style={s.medRowName}>
+              {item.titulo}
+            </Text>
+
+            <Text style={s.medRowTime}>
+              {item.horario}
+            </Text>
           </View>
+
+          <Feather
+            name={
+              item.tipo === 'medicamento'
+                ? 'heart'
+                : 'check-circle'
+            }
+            size={18}
+            color={CORES.primaria}
+          />
         </View>
       ))}
     </View>
@@ -464,10 +561,17 @@ function AbaRemedios({
 
           <View style={{ flex: 1 }}>
             <Text style={s.medRowName}>{t.descricao}</Text>
-            <Text style={s.medRowTime}>{t.horario}</Text>
+
+            <Text style={s.medRowTime}>
+              {t.horarios?.join(', ')}
+            </Text>
+
+            <Text style={s.medRowTime}>
+              {t.dias?.join(', ')}
+            </Text>
           </View>
         </View>
-      ))}
+    ))}
     </View>
   );
 }
