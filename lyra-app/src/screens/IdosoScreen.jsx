@@ -27,7 +27,8 @@ export default function IdosoScreen({ navigation }) {
   const [modalMed, setModalMed] = useState(false);
   const [nomeMed, setNomeMed] = useState('');
   const [dosagemMed, setDosagemMed] = useState('');
-  const [horarioMed, setHorarioMed] = useState('08:00');
+  const [horariosMed, setHorariosMed] = useState(['08:00']);
+  const [diasMed, setDiasMed] = useState([]);
   const [salvandoMed, setSalvandoMed] = useState(false);
 
   useEffect(() => { inicializar(); return () => wsService.desconectar(); }, []);
@@ -48,47 +49,50 @@ export default function IdosoScreen({ navigation }) {
 
   const handleConfirmar = async (med) => { try { await confirmarPorVoz(med.id); await carregarMedicamentos(); setMedAtivo(null); } catch { falar('Tente de novo.'); } };
   const handleAdicionarMed = async () => {
-  if (!nomeMed.trim() || !dosagemMed.trim()) {
-    Alert.alert(
-      'Atenção',
-      'Preencha o nome e a dosagem do medicamento.'
-    );
-    return;
-  }
+    if (!nomeMed.trim() || !dosagemMed.trim()) {
+      Alert.alert('Atenção', 'Preencha o nome e a dosagem do medicamento.');
+      return;
+    }
 
-  setSalvandoMed(true);
+    setSalvandoMed(true);
 
-  try {
-  const horarioFormatado = horarioMed.length === 5
-    ? `${horarioMed}:00`
-    : horarioMed;
+    try {
+      const novo = await criarMedicamento(
+        nomeMed,
+        dosagemMed,
+        horariosMed.join(', '), // 👈 TODOS os horários
+      );
 
-  const novo = await criarMedicamento(
-    nomeMed,
-    dosagemMed,
-    horarioFormatado
-  );
+      setMedicamentos((p) => [...p, { ...novo, active: true }]);
 
-  setMedicamentos((p) => [...p, { ...novo, active: true }]);
-
-  setModalMed(false);
-  setNomeMed('');
-  setDosagemMed('');
-  setHorarioMed('08:00');
-} catch (err) {
-  console.log("❌ ERRO:", err);
-  console.log("❌ RESPONSE:", err?.response?.data);
-  console.log("❌ STATUS:", err?.response?.status);
-
-  Alert.alert(
-    "Erro ao salvar",
-    JSON.stringify(err?.response?.data || err.message)
-  );
-}
-};
+      setModalMed(false);
+      setNomeMed('');
+      setDosagemMed('');
+      setHorariosMed(['08:00']); // 👈 reset correto
+      setDiasMed([]); // 👈 reset dias também
+    } catch (err) {
+      console.log("❌ ERRO:", err);
+      Alert.alert(
+        "Erro ao salvar",
+        JSON.stringify(err?.response?.data || err.message)
+      );
+    } finally {
+      setSalvandoMed(false);
+    }
+  };
   const handleTocarMed = async (med) => { setMedAtivo(med); setVozAtiva(true); await falar(med.name + '. Você já tomou?'); setVozAtiva(false); };
 
   const jaConfirmado = (med) => med.status === 'tomado';
+
+  const DIAS_SEMANA = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+  const toggleDia = (dia) => {
+    setDiasMed(prev =>
+      prev.includes(dia)
+        ? prev.filter(d => d !== dia)
+        : [...prev, dia]
+    );
+  };
 
   return (
     <SafeAreaView style={s.safe}>
@@ -144,7 +148,21 @@ export default function IdosoScreen({ navigation }) {
             <View style={[s.medCardIcon, jaConfirmado(med) && s.medCardIconOk]}><Feather name={jaConfirmado(med) ? 'check' : 'plus'} size={24} color={jaConfirmado(med) ? CORES.sucesso : CORES.primaria} /></View>
             <View style={{ flex: 1 }}>
               <Text style={s.medCardNome}>{med.name}</Text>
-              <Text style={s.medCardDosagem}>{med.dosage} • {med.time}</Text>
+              <Text style={s.medCardDosagem}>
+                {med.dosage}
+              </Text>
+
+              {med.time && (
+                <Text style={s.medCardDosagem}>
+                  🕒 {med.time}
+                </Text>
+              )}
+
+              {med.days && Array.isArray(med.days) && (
+                <Text style={s.medCardDosagem}>
+                  📅 {med.days.join(', ')}
+                </Text>
+              )}
             </View>
           </TouchableOpacity>
         ))}
@@ -171,9 +189,11 @@ export default function IdosoScreen({ navigation }) {
       <Modal visible={modalMed} animationType="slide" transparent>
         <View style={s.modalOverlay}>
           <View style={s.modalCard}>
-            <View style={s.modalDrag} />
 
+            <View style={s.modalDrag} />
             <Text style={s.modalTitle}>Novo Medicamento</Text>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
 
             <View style={s.field}>
               <Text style={s.fieldTxt}>Nome</Text>
@@ -193,18 +213,61 @@ export default function IdosoScreen({ navigation }) {
               />
             </View>
 
-            <View style={s.field}>
-              <Text style={s.fieldTxt}>Horário</Text>
-              <TextInput
-                style={s.input}
-                value={horarioMed}
-                onChangeText={setHorarioMed}
-              />
+            <Text style={s.fieldTxt}>Dias da Semana</Text>
+
+            <View style={s.daysContainer}>
+              {DIAS_SEMANA.map(dia => (
+                <TouchableOpacity
+                  key={dia}
+                  style={[
+                    s.dayChip,
+                    diasMed.includes(dia) && s.dayChipSelected
+                  ]}
+                  onPress={() => toggleDia(dia)}
+                >
+                  <Text style={
+                    diasMed.includes(dia)
+                      ? s.dayChipTextSelected
+                      : s.dayChipText
+                  }>
+                    {dia}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
+            <Text style={[s.fieldTxt, { marginTop: 20 }]}>
+              Horários
+            </Text>
+
+            {horariosMed.map((hora, index) => (
+              <TextInput
+                key={index}
+                style={[s.input, { marginBottom: 10 }]}
+                value={hora}
+                onChangeText={(text) => {
+                  const copia = [...horariosMed];
+                  copia[index] = text;
+                  setHorariosMed(copia);
+                }}
+              />
+            ))}
+
             <TouchableOpacity
-              style={s.btnPrimary}
+              style={s.addTimeBtn}
+              onPress={() =>
+                setHorariosMed([...horariosMed, '08:00'])
+              }
+            >
+              <Feather name="plus" size={16} color={CORES.branco} />
+              <Text style={s.addTimeText}>Adicionar horário</Text>
+            </TouchableOpacity>
+
+
+            <TouchableOpacity
+              style={[s.btnPrimary, salvandoMed && { opacity: 0.6 }]}
               onPress={handleAdicionarMed}
+              disabled={salvandoMed}
             >
               <Text style={s.btnText}>Adicionar</Text>
             </TouchableOpacity>
@@ -215,7 +278,9 @@ export default function IdosoScreen({ navigation }) {
             >
               <Text style={s.btnCancelText}>Cancelar</Text>
             </TouchableOpacity>
+            </ScrollView>
           </View>
+            
         </View>
       </Modal>
     </SafeAreaView>
@@ -332,9 +397,10 @@ input: {
 
 btnPrimary: {
   backgroundColor: CORES.primaria,
-  borderRadius: 18,
-  padding: 18,
+  borderRadius: 16,
+  padding: 16,
   alignItems: 'center',
+  marginTop: 20,
 },
 
 btnText: {
@@ -435,4 +501,58 @@ sairBtn: {
   alignItems: 'center',
   justifyContent: 'center',
 },
+
+group: {
+  marginBottom: 18,
+  backgroundColor: '#F9FAFB',
+  padding: 14,
+  borderRadius: 16,
+},
+
+daysContainer: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  gap: 8,
+  marginTop: 10,
+},
+
+dayChip: {
+  paddingVertical: 8,
+  paddingHorizontal: 12,
+  borderRadius: 12,
+  backgroundColor: '#E5E7EB',
+},
+
+dayChipSelected: {
+  backgroundColor: CORES.primaria,
+},
+
+dayChipText: {
+  color: '#374151',
+  fontWeight: '600',
+},
+
+dayChipTextSelected: {
+  color: '#fff',
+  fontWeight: '700',
+},
+
+addTimeBtn: {
+  flexDirection: 'row',
+  backgroundColor: CORES.primaria,
+  paddingVertical: 12,
+  paddingHorizontal: 14,
+  borderRadius: 14,
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginTop: 8,
+  gap: 8,
+},
+
+addTimeText: {
+  color: CORES.branco,
+  fontWeight: '700',
+  fontSize: 14,
+},
+
 });
