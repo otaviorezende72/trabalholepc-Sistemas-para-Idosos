@@ -36,12 +36,18 @@ export const contaExiste = async () => {
   return !!usuario;
 };
 
-// ── Sessão (temporária) ───────────────────────────────────────────────────────
-
 export const salvarModo = (modo) => AsyncStorage.setItem(SESSAO.MODO, modo);
 export const lerModo = () => AsyncStorage.getItem(SESSAO.MODO);
 
-export const encerrarSessao = () => AsyncStorage.removeItem(SESSAO.MODO);
+export const salvarToken = (token) => AsyncStorage.setItem('lyra_jwt_token', token);
+export const lerToken = () => AsyncStorage.getItem('lyra_jwt_token');
+export const removerToken = () => AsyncStorage.removeItem('lyra_jwt_token');
+
+export const encerrarSessao = async () => {
+  await AsyncStorage.removeItem(SESSAO.MODO);
+  await AsyncStorage.removeItem('lyra_jwt_token');
+};
+
 
 // ── Gerador de código ─────────────────────────────────────────────────────────
 

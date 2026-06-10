@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from backend.database import Base
 
 class Medication(Base):
@@ -11,3 +11,6 @@ class Medication(Base):
     active = Column(Boolean, default=True, nullable=False)
     status = Column(String, default="ativo", nullable=False)  # "ativo" ou "tomado"
     confirmed_at = Column(DateTime, nullable=True)
+    critical = Column(Boolean, default=False, nullable=False)
+    elder_id = Column(Integer, ForeignKey("elder_settings.id"), nullable=True)
+

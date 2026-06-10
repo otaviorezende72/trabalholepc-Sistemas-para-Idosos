@@ -10,8 +10,10 @@ import {
   listarAlertas, resolverAlerta,
   listarMedicamentos, criarMedicamento, removerMedicamento,
   buscarConfiguracoes, salvarConfiguracoes,
-  listarTarefas, criarTarefa, removerTarefa
+  listarTarefas, criarTarefa, removerTarefa,
+  confirmarMedicamento, desconfirmarMedicamento, toggleTarefa
 } from '../services/api';
+
 import { wsService } from '../services/websocket';
 import { encerrarSessao, lerConta, lerUsuario } from '../services/armazenamento';
 
@@ -46,6 +48,11 @@ export default function FamiliarScreen({ navigation }) {
   const [telefone, setTelefone] = useState('');
   const [codigoAcesso, setCodigoAcesso] = useState('');
   const [nomeUsuario, setNomeUsuario] = useState('');
+  const [sleepStartNight, setSleepStartNight] = useState('22:00');
+  const [sleepEndNight, setSleepEndNight] = useState('07:00');
+  const [sleepStartAfternoon, setSleepStartAfternoon] = useState('13:30');
+  const [sleepEndAfternoon, setSleepEndAfternoon] = useState('15:30');
+  const [statusConexao, setStatusConexao] = useState('reconectando');
   const DIAS_SEMANA = [
   'Seg',
   'Ter',
@@ -59,7 +66,14 @@ export default function FamiliarScreen({ navigation }) {
   useEffect(() => { carregarTudo(); conectarWs(); return () => wsService.desconectar(); }, []);
 
   const conectarWs = () => {
-    wsService.resetar(); wsService.conectar('mobile');
+    wsService.resetar(); 
+    wsService.conectar('mobile');
+
+    // Escuta alterações de conectividade do WebSocket para alimentar a UI
+    wsService.on('estado_alterado', (estado) => {
+      setStatusConexao(estado.status);
+    });
+
     wsService.on('SOS_TRIGGERED', (d) => { setAlertas(p => [{ id: d.alert_id, type: 'SOS', resolved: false, timestamp: d.timestamp }, ...p]); setAba('alertas'); });
     wsService.on('MEDICATION_CONFIRMED', () => carregarMedicamentos());
   };
@@ -73,7 +87,19 @@ export default function FamiliarScreen({ navigation }) {
   const carregarConta = async () => { try { const c = await lerConta(); if (c.codigo) setCodigoAcesso(c.codigo); if (c.usuario) setNomeUsuario(c.usuario); } catch {} };
   const carregarAlertas = async () => { try { setAlertas(await listarAlertas()); } catch {} };
   const carregarMedicamentos = async () => { try { setMedicamentos(await listarMedicamentos()); } catch {} };
-  const carregarConfig = async () => { try { const d = await buscarConfiguracoes(); setConfig(d); setIntervalo(String(d.checkin_interval_hours)); setNomeContato(d.emergency_contact_name); setTelefone(d.emergency_contact_phone); } catch {} };
+  const carregarConfig = async () => {
+    try {
+      const d = await buscarConfiguracoes();
+      setConfig(d);
+      setIntervalo(String(d.checkin_interval_hours));
+      setNomeContato(d.emergency_contact_name);
+      setTelefone(d.emergency_contact_phone);
+      setSleepStartNight(d.sleep_start_night || '22:00');
+      setSleepEndNight(d.sleep_end_night || '07:00');
+      setSleepStartAfternoon(d.sleep_start_afternoon || '13:30');
+      setSleepEndAfternoon(d.sleep_end_afternoon || '15:30');
+    } catch {}
+  };
 
   const handleSair = async () => {
     console.log("[Sair - Passo 1] Botão de sair clicado! Plataforma:", Platform.OS);
@@ -208,6 +234,27 @@ export default function FamiliarScreen({ navigation }) {
       ]
     );
   };
+
+  const handleSalvarConfig = async () => {
+    try {
+      const payload = {
+        ...config,
+        checkin_interval_hours: parseInt(intervalo, 10) || (config ? config.checkin_interval_hours : 12),
+        emergency_contact_name: nomeContato,
+        emergency_contact_phone: telefone,
+        sleep_start_night: sleepStartNight,
+        sleep_end_night: sleepEndNight,
+        sleep_start_afternoon: sleepStartAfternoon,
+        sleep_end_afternoon: sleepEndAfternoon,
+      };
+      const result = await salvarConfiguracoes(payload);
+      setConfig(result);
+      Alert.alert('Sucesso', 'Configurações salvas com sucesso!');
+    } catch (error) {
+      console.log("[ERRO CONFIG]:", error.message);
+      Alert.alert('Erro', 'Não foi possível salvar as configurações no servidor.');
+    }
+  };
   const naoResolvidos = alertas.filter(a => !a.resolved).length;
   const confirmados = medicamentos.filter(m => m.status === 'tomado').length;
   const rotinaHoje = [
@@ -245,33 +292,63 @@ export default function FamiliarScreen({ navigation }) {
     );
   };
 
-  const toggleRotina = (item) => {
+  const toggleRotina = async (item) => {
+    const rawId = parseInt(item.id.split('-')[1], 10);
+    
     if (item.tipo === 'tarefa') {
+      // Atualização otimista
       setTarefas(prev =>
         prev.map(t =>
-          `tar-${t.id}` === item.id
-            ? { ...t, concluido: !t.concluido }
+          t.id === rawId
+            ? { ...t, concluido: !t.concluido, completed: !t.completed }
             : t
         )
       );
+      try {
+        await toggleTarefa(rawId);
+      } catch (err) {
+        // Reverte em caso de erro
+        setTarefas(prev =>
+          prev.map(t =>
+            t.id === rawId
+              ? { ...t, concluido: !t.concluido, completed: !t.completed }
+              : t
+          )
+        );
+        Alert.alert('Erro', 'Não foi possível atualizar o status da tarefa no servidor.');
+      }
     }
 
     if (item.tipo === 'medicamento') {
+      const novoStatus = item.concluido ? 'pendente' : 'tomado';
+      // Atualização otimista
       setMedicamentos(prev =>
         prev.map(m =>
-          `med-${m.id}` === item.id
-            ? {
-                ...m,
-                status:
-                  m.status === 'tomado'
-                    ? 'pendente'
-                    : 'tomado'
-              }
+          m.id === rawId
+            ? { ...m, status: novoStatus }
             : m
         )
       );
+      try {
+        if (item.concluido) {
+          await desconfirmarMedicamento(rawId);
+        } else {
+          await confirmarMedicamento(rawId);
+        }
+      } catch (err) {
+        // Reverte em caso de erro
+        setMedicamentos(prev =>
+          prev.map(m =>
+            m.id === rawId
+              ? { ...m, status: item.concluido ? 'tomado' : 'pendente' }
+              : m
+          )
+        );
+        Alert.alert('Erro', 'Não foi possível atualizar o status do medicamento no servidor.');
+      }
     }
   };
+
 
   return (
     <SafeAreaView style={s.safe}>
@@ -284,6 +361,23 @@ export default function FamiliarScreen({ navigation }) {
         <View style={s.titleBox}>
           <Text style={s.headerTitle}>Lyra</Text>
           <Text style={s.headerGreeting}>Olá, {nomeUsuario || 'Responsável'}</Text>
+          
+          {/* Indicador de Status da Conexão em Tempo Real */}
+          <View style={[
+            s.statusBanner, 
+            statusConexao === 'conectado' ? s.statusBannerConectado : s.statusBannerReconectando
+          ]}>
+            <View style={[
+              s.statusPonto, 
+              statusConexao === 'conectado' ? { backgroundColor: CORES.sucesso } : { backgroundColor: CORES.alerta }
+            ]} />
+            <Text style={[
+              s.statusBannerTexto, 
+              statusConexao === 'conectado' ? { color: CORES.sucesso } : { color: '#B45309' }
+            ]}>
+              {statusConexao === 'conectado' ? 'Monitoramento Ativo' : 'Tentando Reconectar...'}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -307,7 +401,19 @@ export default function FamiliarScreen({ navigation }) {
           />
         }
         {aba === 'alertas'  && <AbaAlertas alertas={alertas} onRes={handleResolverAlerta} />}
-        {aba === 'config'   && <AbaConfig int={intervalo} setInt={setIntervalo} nom={nomeContato} setNom={setNomeContato} tel={telefone} setTel={setTelefone} cod={codigoAcesso} onSalvar={() => {}} />}
+        {aba === 'config'   && (
+          <AbaConfig
+            int={intervalo} setInt={setIntervalo}
+            nom={nomeContato} setNom={setNomeContato}
+            tel={telefone} setTel={setTelefone}
+            cod={codigoAcesso}
+            sleepStartNight={sleepStartNight} setSleepStartNight={setSleepStartNight}
+            sleepEndNight={sleepEndNight} setSleepEndNight={setSleepEndNight}
+            sleepStartAfternoon={sleepStartAfternoon} setSleepStartAfternoon={setSleepStartAfternoon}
+            sleepEndAfternoon={sleepEndAfternoon} setSleepEndAfternoon={setSleepEndAfternoon}
+            onSalvar={handleSalvarConfig}
+          />
+        )}
         <View style={{height: 100}} />
       </ScrollView>
 
@@ -641,7 +747,17 @@ function AbaAlertas({ alertas, onRes }) {
   );
 }
 
-function AbaConfig({ int, setInt, nom, setNom, tel, setTel, cod, onSalvar }) {
+function AbaConfig({
+  int, setInt,
+  nom, setNom,
+  tel, setTel,
+  cod,
+  sleepStartNight, setSleepStartNight,
+  sleepEndNight, setSleepEndNight,
+  sleepStartAfternoon, setSleepStartAfternoon,
+  sleepEndAfternoon, setSleepEndAfternoon,
+  onSalvar
+}) {
   return (
     <View style={s.secao}>
       <Text style={s.sectionTitle}>Ajustes do Paciente</Text>
@@ -650,8 +766,20 @@ function AbaConfig({ int, setInt, nom, setNom, tel, setTel, cod, onSalvar }) {
         <Text style={s.codigoHighlight}>{cod}</Text>
       </View>
       <View style={s.configCard}>
+        <View style={s.field}><Text style={s.fieldTxt}>Intervalo de Check-in (horas)</Text><TextInput style={s.input} value={int} onChangeText={setInt} keyboardType="numeric" /></View>
         <View style={s.field}><Text style={s.fieldTxt}>Contato Emergência</Text><TextInput style={s.input} value={nom} onChangeText={setNom} /></View>
         <View style={s.field}><Text style={s.fieldTxt}>Telefone</Text><TextInput style={s.input} value={tel} onChangeText={setTel} /></View>
+        
+        <Text style={[s.sectionTitle, { fontSize: 16, marginTop: 10, marginBottom: 10 }]}>Janelas de Sono</Text>
+        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+          <View style={[s.field, { flex: 1 }]}><Text style={s.fieldTxt}>Início Sono Noturno</Text><TextInput style={s.input} value={sleepStartNight} onChangeText={setSleepStartNight} placeholder="Ex: 22:00" /></View>
+          <View style={[s.field, { flex: 1 }]}><Text style={s.fieldTxt}>Fim Sono Noturno</Text><TextInput style={s.input} value={sleepEndNight} onChangeText={setSleepEndNight} placeholder="Ex: 07:00" /></View>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+          <View style={[s.field, { flex: 1 }]}><Text style={s.fieldTxt}>Início Cochilo</Text><TextInput style={s.input} value={sleepStartAfternoon} onChangeText={setSleepStartAfternoon} placeholder="Ex: 13:30" /></View>
+          <View style={[s.field, { flex: 1 }]}><Text style={s.fieldTxt}>Fim Cochilo</Text><TextInput style={s.input} value={sleepEndAfternoon} onChangeText={setSleepEndAfternoon} placeholder="Ex: 15:30" /></View>
+        </View>
+
         <TouchableOpacity style={s.btnPrimary} onPress={onSalvar}><Text style={s.btnText}>Salvar Dados</Text></TouchableOpacity>
       </View>
     </View>
@@ -778,9 +906,35 @@ addTimeBtn: {
 
 },
 
-addTimeText: {
-  color: CORES.primaria,
-  fontWeight: '600',
-  marginLeft: 6,
-},
+  addTimeText: {
+    color: CORES.primaria,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginTop: 8,
+    alignSelf: 'center',
+  },
+  statusBannerConectado: {
+    backgroundColor: CORES.sucessoClaro,
+  },
+  statusBannerReconectando: {
+    backgroundColor: CORES.alertaClaro,
+  },
+  statusPonto: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  statusBannerTexto: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
 });

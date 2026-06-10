@@ -34,8 +34,14 @@ EMERGENCY_CONTACT_NAME = os.getenv("EMERGENCY_CONTACT_NAME", "Contato de Emergê
 EMERGENCY_CONTACT_PHONE = os.getenv("EMERGENCY_CONTACT_PHONE", "+55 11 99999-9999")
 
 # Conexão WebSocket com o Backend FastAPI
-WS_URL = os.getenv("WS_URL", "ws://localhost:8000/ws?client_type=motor")
+DEVICE_TOKEN = os.getenv("DEVICE_TOKEN", "123456")
+WS_URL = os.getenv("WS_URL", f"ws://localhost:8000/ws?client_type=motor&token={DEVICE_TOKEN}")
 API_URL = os.getenv("API_URL", "http://localhost:8000")
+
 
 # Resumo do perfil do idoso (Memória de Longo Prazo)
 PROFILE_SUMMARY = ""
+
+# Estado de ausência (Modo Ausente) e delay de conciliação
+IS_AWAY = False
+RECONCILIATION_DELAY = 120

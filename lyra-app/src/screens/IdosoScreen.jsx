@@ -22,6 +22,8 @@ export default function IdosoScreen({ navigation }) {
   const [medAtivo, setMedAtivo] = useState(null);
   const [vozAtiva, setVozAtiva] = useState(false);
   const [sosAtivado, setSosAtivado] = useState(false);
+  const [escutando, setEscutando] = useState(false);
+  const [transcricao, setTranscricao] = useState('');
   
   const pulsoSos = useRef(new Animated.Value(1)).current;
   const [modalMed, setModalMed] = useState(false);
@@ -30,6 +32,7 @@ export default function IdosoScreen({ navigation }) {
   const [horariosMed, setHorariosMed] = useState(['08:00']);
   const [diasMed, setDiasMed] = useState([]);
   const [salvandoMed, setSalvandoMed] = useState(false);
+
 
   useEffect(() => { inicializar(); return () => wsService.desconectar(); }, []);
   useEffect(() => {
@@ -95,6 +98,101 @@ export default function IdosoScreen({ navigation }) {
     );
   };
 
+  const alternarEscuta = async () => {
+    if (escutando) {
+      setEscutando(false);
+      return;
+    }
+
+    setEscutando(true);
+    setTranscricao('');
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'pt-BR';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = (event) => {
+          const texto = event.results[0][0].transcript.toLowerCase();
+          console.log('[STT] Transcrição:', texto);
+          setTranscricao(texto);
+          processarComandoVoz(texto);
+        };
+
+        recognition.onerror = (event) => {
+          console.warn('[STT] Erro de reconhecimento:', event.error);
+          setEscutando(false);
+        };
+
+        recognition.onend = () => {
+          setEscutando(false);
+        };
+
+        recognition.start();
+      } catch (err) {
+        console.warn('[STT] Falha ao iniciar:', err);
+        setEscutando(false);
+      }
+    } else {
+      // Fallback para dispositivos sem suporte à Web Speech API nativa (ex: simuladores móveis puros)
+      await falar('Estou ouvindo. Pode falar.');
+      
+      setTimeout(() => {
+        setEscutando(false);
+        if (Platform.OS === 'web') {
+          const mockText = window.prompt("Simulador de Voz Lyra (Ex: 'me ajuda eu cai' ou 'sim'):");
+          if (mockText) {
+            processarComandoVoz(mockText.toLowerCase());
+          }
+        } else {
+          Alert.alert(
+            "Comando de Voz",
+            "O que você gostaria de dizer para a Lyra?",
+            [
+              { text: "Me ajuda, eu caí!", onPress: () => processarComandoVoz("me ajuda eu cai") },
+              { text: "Já tomei o remédio", onPress: () => {
+                  if (medAtivo) {
+                    processarComandoVoz("sim");
+                  } else {
+                    Alert.alert("Aviso", "Não há lembrete de remédio ativo para confirmar.");
+                  }
+                }
+              },
+              { text: "Cancelar", style: "cancel" }
+            ]
+          );
+        }
+      }, 3000);
+    }
+  };
+
+  const processarComandoVoz = (texto) => {
+    // SOS
+    if (texto.includes('ajuda') || texto.includes('cai') || texto.includes('caí') || texto.includes('socorro') || texto.includes('dor')) {
+      handleSos();
+      return;
+    }
+
+    // Lembrete
+    if (medAtivo && (texto.includes('sim') || texto.includes('tomei') || texto.includes('já') || texto.includes('ja') || texto.includes('tome'))) {
+      handleConfirmar(medAtivo);
+      return;
+    }
+
+    // Negação
+    if (medAtivo && (texto.includes('não') || texto.includes('nao') || texto.includes('ainda não'))) {
+      setMedAtivo(null);
+      falar('Tudo bem. Lembre-se de tomar assim que puder.');
+      return;
+    }
+
+    falar('Desculpe, não consegui entender o comando.');
+  };
+
+
   return (
     <SafeAreaView style={s.safe}>
       {/* Header CliniQ Minimal */}
@@ -108,6 +206,14 @@ export default function IdosoScreen({ navigation }) {
           <Feather name="log-out" size={22} color={CORES.primaria} />
         </TouchableOpacity>
       </View>
+
+      {escutando && (
+        <View style={s.escutandoBanner}>
+          <Feather name="mic" size={16} color={CORES.branco} style={{ marginRight: 8 }} />
+          <Text style={s.escutandoTexto}>Lyra está ouvindo... Fale agora</Text>
+        </View>
+      )}
+
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         {/* SOS - Circular Card */}
         <View style={s.helpSection}>
@@ -172,11 +278,13 @@ export default function IdosoScreen({ navigation }) {
         <View style={s.fabContainer}>
   
           <TouchableOpacity
-            style={s.micBtn}
-            onPress={() => console.log('capturar áudio')}
+            style={[s.micBtn, escutando && s.micBtnAtivo]}
+            onPress={alternarEscuta}
+            activeOpacity={0.8}
           >
-            <Feather name="mic" size={20} color={CORES.branco} />
+            <Feather name={escutando ? "mic-off" : "mic"} size={20} color={CORES.branco} />
           </TouchableOpacity>
+
 
           <TouchableOpacity
             style={s.iconBtnAction}
@@ -555,5 +663,23 @@ addTimeText: {
   fontWeight: '700',
   fontSize: 14,
 },
-
-});
+micBtnAtivo: {
+  backgroundColor: '#EF4444',
+},
+escutandoBanner: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: '#3B82F6',
+  paddingVertical: 12,
+  borderRadius: 16,
+  marginHorizontal: 24,
+  marginTop: 10,
+  ...SOMBRA.pequena,
+},
+escutandoTexto: {
+  color: CORES.branco,
+  fontSize: 14,
+  fontWeight: '700',
+},
+});

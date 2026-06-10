@@ -3,7 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityInd
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { CORES, SOMBRA } from '../theme';
-import { salvarConta, lerConta, salvarModo, gerarCodigo } from '../services/armazenamento';
+import { salvarConta, lerConta, salvarModo, gerarCodigo, salvarToken } from '../services/armazenamento';
+import { loginResponsavel, cadastrarResponsavel, loginIdoso } from '../services/api';
+
+
 
 const { height: SH, width: SW } = Dimensions.get('window');
 
@@ -187,13 +190,21 @@ function TelaLogin({ onVoltar, onSucesso }) {
     if (!usuario.trim() || !senha.trim()) { setErro('Preencha todos os campos.'); return; }
     setLoading(true); setErro('');
     try {
-      const c = await lerConta();
-      if (!c.usuario) { setErro('Nenhuma conta encontrada.'); setLoading(false); return; }
-      if (usuario.trim() === c.usuario && senha === c.senha) { await salvarModo('FAMILIAR'); onSucesso(); }
-      else setErro('Usuário ou senha incorretos.');
-    } catch { setErro('Erro ao verificar.'); }
+      const res = await loginResponsavel(usuario.trim(), senha);
+      if (res && res.token) {
+        await salvarToken(res.token);
+        await salvarConta(res.username, senha, res.access_code);
+        await salvarModo('FAMILIAR');
+        onSucesso();
+      } else {
+        setErro('Falha ao autenticar.');
+      }
+    } catch (e) {
+      setErro(e.response?.data?.detail || 'Usuário ou senha incorretos.');
+    }
     setLoading(false);
   };
+
 
   return (
     <View style={{ flex: 1 }}>
@@ -258,12 +269,22 @@ function TelaCriarConta({ onVoltar, onConcluir }) {
 
   const handleCriar = async () => {
     if (!usuario.trim() || senha.length < 4 || senha !== confirmar) { setErro('Verifique os campos inseridos.'); return; }
-    setLoading(true);
-    const codigo = gerarCodigo();
-    await salvarConta(usuario.trim(), senha, codigo);
-    onConcluir(usuario.trim(), codigo);
+    setLoading(true); setErro('');
+    try {
+      const res = await cadastrarResponsavel(usuario.trim(), senha);
+      if (res && res.token) {
+        await salvarToken(res.token);
+        await salvarConta(res.username, senha, res.access_code);
+        onConcluir(res.username, res.access_code);
+      } else {
+        setErro('Erro ao registrar.');
+      }
+    } catch (e) {
+      setErro(e.response?.data?.detail || 'Erro ao realizar o cadastro.');
+    }
     setLoading(false);
   };
+
 
   return (
     <View style={{ flex: 1 }}>
@@ -357,10 +378,24 @@ function TelaCodigoIdoso({ onVoltar, onSucesso }) {
   const [erro, setErro] = useState(false);
 
   const handleVerificar = async () => {
-    const c = await lerConta();
-    if (codigo === c.codigo) { await salvarModo('IDOSO'); onSucesso(); }
-    else { setErro(true); setCodigo(''); }
+    if (codigo.length < 6) return;
+    setErro(false);
+    try {
+      const res = await loginIdoso(codigo);
+      if (res && res.token) {
+        await salvarToken(res.token);
+        await salvarModo('IDOSO');
+        onSucesso();
+      } else {
+        setErro(true);
+        setCodigo('');
+      }
+    } catch (e) {
+      setErro(true);
+      setCodigo('');
+    }
   };
+
 
   return (
     <View style={{ flex: 1 }}>

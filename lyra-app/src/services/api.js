@@ -1,16 +1,32 @@
 import axios from 'axios';
+import { lerToken } from './armazenamento';
 
-// Trocar pelo IP do seu computador onde o FastAPI roda
-// Celular físico na mesma rede Wi-Fi: use o IP local (ex: 192.168.1.100)
-// Emulador Android: use 10.0.2.2
-export const BASE_URL = 'http://192.168.0.135:8000';
-export const WS_URL = `ws://192.168.0.135:8000/ws`;
+// A URL do backend é consumida dinamicamente a partir do ambiente do Expo
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+export const WS_URL = BASE_URL.replace(/^http/, 'ws') + '/ws';
 
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
+
+// Interceptor para injetar o JWT de forma dinâmica
+api.interceptors.request.use(
+  async (config) => {
+    try {
+      const token = await lerToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (e) {
+      console.warn('[API] Falha ao ler token da sessão:', e);
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 
 // ── Medicamentos ──────────────────────────────────────────────────────────────
 
@@ -93,4 +109,33 @@ export const salvarConfiguracoes = async (payload) => {
   return data;
 };
 
-export default api;
+// ── Autenticação ─────────────────────────────────────────────────────────────
+
+export const loginResponsavel = async (username, password) => {
+  const { data } = await api.post('/api/auth/login', { username, password });
+  return data; // { token, username, access_code }
+};
+
+export const cadastrarResponsavel = async (username, password) => {
+  const { data } = await api.post('/api/auth/register', { username, password });
+  return data; // { token, username, access_code }
+};
+
+export const loginIdoso = async (code) => {
+  const { data } = await api.post('/api/auth/login-elder', { code });
+  return data; // { token, elder_name, elder_id }
+};
+
+// ── Toggles de Rotina ─────────────────────────────────────────────────────────
+
+export const toggleTarefa = async (id) => {
+  const { data } = await api.patch(`/api/tasks/${id}/toggle`);
+  return data;
+};
+
+export const desconfirmarMedicamento = async (id) => {
+  const { data } = await api.put(`/medications/${id}/unconfirm`);
+  return data;
+};
+
+export default api;

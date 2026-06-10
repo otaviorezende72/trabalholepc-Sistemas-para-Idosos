@@ -1,140 +1,129 @@
-# Guia de Execução Passo a Passo: Ecossistema Lyra
+# Guia Completo de Execução: Ecossistema Lyra 🛡️
 
-Este guia contém as instruções completas para configurar, testar e executar localmente o **Motor de Voz Lyra (Python)** integrado ao **Backend (FastAPI + SQLite)**.
-
----
-
-## 📋 Pré-requisitos
-Antes de iniciar, certifique-se de ter instalado em sua máquina Windows:
-1.  **Python 3.10 ou superior** instalado e adicionado ao PATH do sistema.
-2.  **Ollama** instalado e em execução:
-    *   Acesse [ollama.com](https://ollama.com) para instalar.
-    *   No terminal, baixe e carregue o modelo Llama 3 executando:
-        ```bash
-        ollama run llama3
-        ```
-        *(Mantenha o Ollama ativo em segundo plano durante a execução da Lyra)*.
-3.  **Dispositivos de Áudio:** Um microfone padrão e uma saída de som funcionais configurados no Windows.
+Este guia prático e detalhado explica como configurar, testar e executar localmente todo o ecossistema da **Lyra**, composto por:
+1. **Backend (FastAPI + SQLAlchemy + SQLite)**
+2. **Motor de Voz / Assistente Virtual (Python + Ollama)**
+3. **Aplicativo Mobile (React Native + Expo)**
 
 ---
 
-## 🛠️ Passo 1: Instalação das Dependências
+## 📋 Requisitos Prévios
 
-Abra o terminal do PowerShell ou Command Prompt (cmd) na raiz do projeto (`C:\Users\tator\PycharmProjects\PythonProject`) e siga os passos abaixo:
-
-### 1.1. Ativação do Ambiente Virtual
-Ative o ambiente virtual já configurado no projeto:
-*   No **PowerShell**:
-    ```powershell
-    .venv\Scripts\Activate.ps1
+Antes de começar, certifique-se de que sua máquina possui:
+- **Python 3.10 ou superior** (com pip).
+- **Node.js 18 ou superior** (com npm).
+- **Ollama** instalado e ativo:
+  * Baixe e instale via [ollama.com](https://ollama.com).
+  * Baixe o modelo Qwen (usado por padrão no projeto) rodando no seu terminal:
+    ```bash
+    ollama run qwen2.5:3b
     ```
-*   No **Command Prompt (cmd)**:
-    ```cmd
-    .venv\Scripts\activate.bat
-    ```
+    *(Mantenha o Ollama ativo em segundo plano durante a execução da Lyra)*.
+- **Microfone e Caixas de Som** configurados e funcionais no Windows.
 
-### 1.2. Instalação das Dependências Gerais (Motor + Backend)
-Atualize os pacotes do ambiente virtual executando os comandos a partir da raiz:
-```bash
-# Instala as dependências do Motor de Voz local (STT, TTS, websocket-client e requests)
-pip install -r requirements.txt
+---
 
-# Instala as dependências do Backend FastAPI (FastAPI, Uvicorn, SQLAlchemy)
-pip install -r backend/requirements.txt
+## 🛠️ Passo 1: Configuração e Execução do Backend
+
+O backend serve a API RESTful e gerencia as salas de WebSocket isoladas por idoso (`elder_id`).
+
+1. Abra um terminal do PowerShell na raiz do projeto (`C:\Users\tator\PycharmProjects\PythonProject`).
+2. Ative o ambiente virtual:
+   ```powershell
+   .venv\Scripts\Activate.ps1
+   ```
+3. Instale as dependências específicas do backend:
+   ```bash
+   pip install -r backend/requirements.txt
+   ```
+4. Inicie o servidor do backend FastAPI:
+   ```bash
+   uvicorn backend.main:app --reload
+   ```
+   * O servidor rodará em [http://localhost:8000](http://localhost:8000).
+   * A documentação interativa da API estará acessível em: [http://localhost:8000/docs](http://localhost:8000/docs).
+   * O banco de dados SQLite (`backend.db`) será criado automaticamente no primeiro boot.
+   * **Mantenha este terminal aberto.**
+
+---
+
+## 🎙️ Passo 2: Configuração e Execução do Motor de Voz (Assistente)
+
+O motor de voz é a interface residencial que escuta e conversa com o idoso.
+
+1. Configure as variáveis de ambiente no arquivo `.env` na raiz do projeto. Garanta que a URL de WebSocket inclui o token do dispositivo de voz:
+   ```env
+   AI_MODEL=qwen2.5:3b
+   DEVICE_TOKEN=123456
+   WS_URL=ws://localhost:8000/ws?client_type=motor&token=123456
+   API_URL=http://localhost:8000
+   ```
+2. Abra um **segundo terminal**, ative o ambiente virtual:
+   ```powershell
+   .venv\Scripts\Activate.ps1
+   ```
+3. Instale as dependências do motor de voz:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Execute o script principal do motor:
+   ```bash
+   python main.py
+   ```
+   * O assistente calibrará o microfone por 1 segundo e se conectará ao WebSocket do backend.
+   * Você ouvirá a voz sintetizada de saudação. **Mantenha este terminal aberto.**
+
+---
+
+## 📱 Passo 3: Configuração e Execução do Aplicativo Mobile (`lyra-app`)
+
+O aplicativo móvel conecta o cuidador familiar e o idoso para monitorar rotinas e alertas de emergência.
+
+1. Navegue até a pasta do aplicativo mobile:
+   ```bash
+   cd lyra-app
+   ```
+2. Configure o arquivo `lyra-app/.env`. 
+   * **Importante:** Se você estiver testando em um celular real ou emulador que precise acessar o computador local na mesma rede Wi-Fi, coloque o seu IP de rede local (ex: `192.168.0.x`), ou mantenha `localhost` se for testar no navegador web:
+   ```env
+   EXPO_PUBLIC_API_URL=http://localhost:8000
+   ```
+3. Instale as dependências do React Native / Expo:
+   ```bash
+   npm install
+   ```
+4. Inicie o servidor de desenvolvimento do Expo:
+   ```bash
+   npx expo start -c
+   ```
+5. **Opções para Rodar o App:**
+   * Pressione `w` no terminal do Expo para abrir a interface web no navegador.
+   * Instale o aplicativo **Expo Go** no seu smartphone (Android/iOS) e escaneie o QR Code exibido no terminal.
+
+---
+
+## 🧪 Fluxo de Teste de Ponta a Ponta (Simulação de SOS)
+
+Para validar a comunicação e o fluxo de segurança multi-tenant:
+
+1. **Cadastro do Cuidador:**
+   * No app móvel (`lyra-app`), faça o cadastro de um novo cuidador responsável.
+   * Após o cadastro, você receberá um **Código de Acesso de 6 dígitos** (ex: `123456`) que vincula o assistente de voz a este perfil.
+2. **Vinculação do Motor:**
+   * Certifique-se de que o `DEVICE_TOKEN` no arquivo `.env` da raiz é igual ao código de 6 dígitos gerado.
+   * Inicie o motor de voz (`python main.py`). Ele se conectará e autenticará na sala segura do idoso.
+3. **Disparar SOS:**
+   * Fale próximo ao microfone do motor de voz: *"Me ajuda, eu caí!"* ou clique no botão de microfone da aba do idoso no App Mobile e selecione o simulador de queda/ajuda.
+   * O motor registrará o SOS localmente e transmitirá em tempo real para o backend.
+   * O cuidador receberá a notificação em tempo real na tela do aplicativo, graças à segmentação WebSocket por `elder_id`.
+
+---
+
+## 🩺 Execução da Suíte de Testes Automatizados
+
+Caso faça alterações no código, certifique-se de que nenhuma regra de negócio foi afetada rodando a suíte completa:
+
+```powershell
+.venv\Scripts\python.exe -m unittest backend/test_backend.py tests/test_lyra.py
 ```
-
----
-
-## ⚙️ Passo 2: Configuração das Variáveis de Ambiente (.env)
-O projeto já conta com um arquivo `.env` pré-configurado na raiz. Caso precise editá-lo ou recriá-lo a partir do `.env.example`, certifique-se de que possui as seguintes variáveis chaves:
-
-```env
-# IA / LLM (Ollama)
-AI_MODEL=llama3
-SYSTEM_PROMPT="Você é 'Lyra', uma assistente de saúde virtual amigável..."
-
-# Ajustes de áudio (STT e TTS)
-LISTEN_TIMEOUT_SECONDS=10
-LISTEN_PHRASE_TIME_LIMIT=5
-TTS_RATE=130
-TTS_VOLUME=1.0
-
-# Regras de Alerta e Contato
-MAX_CONSECUTIVE_FAILURES=5
-EMERGENCY_MESSAGE="[ALERTA VERMELHO] Ausência de resposta prolongada..."
-EMERGENCY_CONTACT_NAME="Contato de Emergência"
-EMERGENCY_CONTACT_PHONE="+55 11 99999-9999"
-
-# URLs de Integração com o Backend Local
-WS_URL=ws://localhost:8000/ws?client_type=motor
-API_URL=http://localhost:8000
-```
-
----
-
-## 🚀 Passo 3: Inicialização do Backend (FastAPI)
-
-1.  Com o ambiente virtual ativo, inicie o servidor FastAPI na porta padrão 8000:
-    ```bash
-    uvicorn backend.main:app --reload
-    ```
-2.  **Confirmações do Backend:**
-    *   Ao iniciar, o arquivo `backend.db` (SQLite) será criado automaticamente se não existir.
-    *   A documentação interativa da API REST estará disponível em: [http://localhost:8000/docs](http://localhost:8000/docs).
-    *   *(Deixe este terminal rodando em segundo plano)*.
-
----
-
-## 🎙️ Passo 4: Inicialização do Motor de Voz (Lyra)
-
-1.  Abra um **segundo terminal**, ative o ambiente virtual e execute o script principal na raiz do projeto:
-    ```bash
-    python main.py
-    ```
-2.  **Fluxo Esperado:**
-    *   O motor calibrará o microfone por 1 segundo (ajuste de ruído).
-    *   A conexão WebSocket em segundo plano será estabelecida com o backend: `[WebSocket] Conexão estabelecida com sucesso com o servidor`.
-    *   O assistente falará a saudação inicial: *"Olá! Eu sou Lyra, sua assistente. Como você está se sentindo hoje?"* e abrirá o microfone.
-
----
-
-## 🧪 Passo 5: Testes Manuais de Validação
-
-Com os dois terminais rodando (FastAPI + Motor de Voz), realize estes cenários para ver a arquitetura em ação:
-
-### Cenário A: Ouvido Biônico (Detecção Instantânea de SOS)
-*   **Ação:** Quando o microfone abrir, fale explicitamente: **"Socorro"** ou **"Me ajuda, eu caí"**.
-*   **Comportamento:** O motor de voz intercepta o áudio, fala *"Entendido. Acionando emergência imediatamente"* e desliga o loop.
-*   **No Terminal do Backend:** Você verá o log `[WebSocket] SOS recebido do motor. Enviando broadcast para os celulares.`, comprovando o repasse em tempo real.
-
-### Cenário B: Prevenção de Falsos Alarmes (Sons e Barulhos)
-*   **Ação:** Quando a Lyra abrir o microfone, faça barulho com a boca ou sussurre de forma ininteligível.
-*   **Comportamento:** A Lyra identificará que houve um som ativo do idoso (`AudioResult.UNINTELLIGIBLE`). Ela dirá *"Desculpe, não consegui te ouvir bem. Você pode repetir?"* e **resetará** o contador de falhas (evitando alertas de emergência falsos).
-
-### Cenário C: Queda de Internet (Infraestrutura)
-*   **Ação:** Desconecte a sua conexão de rede (Wi-Fi/Cabo) ou simule bloqueios.
-*   **Comportamento:** Ao tentar escutar, o STT retornará erro de conexão. A Lyra falará localmente *"Estou com dificuldades para me conectar à internet..."*, mas **não** acionará a emergência médica.
-
-### Cenário D: Agendamento de Medicamentos Proativo
-1.  Acesse a documentação da API em [http://localhost:8000/docs](http://localhost:8000/docs).
-2.  Insira um medicamento usando o método `POST /medications` com o horário do sistema atual **mais 1 minuto** (ex: se agora são 13:30, coloque `"time": "13:31"`).
-3.  **Comportamento:** 
-    *   A thread de segundo plano (`MedicationWorker`) fará o polling e detectará a hora.
-    *   A Lyra falará: *"Olá! Está na hora de tomar o [Nome do Remédio]. Você já tomou?"*.
-    *   Responda **"Sim, já tomei"**: A Lyra dirá *"Ótimo, registrado!"*, enviará o `PUT /medications/{id}/confirm` ao backend, e este transmitirá para os WebSockets móveis a mensagem `MEDICATION_CONFIRMED` com o status `"tomado"`.
-
----
-
-## 🩺 Passo 6: Execução dos Testes Unitários Automatizados
-
-Para certificar-se de que novas refatorações não quebraram regras de negócio ou geraram erros de sintaxe, rode os testes integrados e unitários:
-
-*   **Testes do Motor de Voz (Timeout Gradual, Sliding Window e Spotter de SOS):**
-    ```bash
-    python -m unittest tests/test_lyra.py
-    ```
-*   **Testes do Backend (Endpoints REST e Conexão/Broadcast do WebSocket):**
-    ```bash
-    python backend/test_backend.py
-    ```
-*(Ambos devem retornar status `OK`)*.
+*(Todos os 30 testes integrados e unitários devem retornar `OK`)*.

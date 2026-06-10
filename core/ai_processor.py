@@ -81,12 +81,19 @@ class AIProcessor:
         # Reduz o histórico se ultrapassar o limite configurado
         self._trim_history()
         
-        # 1. Obter o profile_summary atual do backend ou usar o local
+        # 1. Obter o profile_summary e elder_name atual do backend ou usar o local
         profile_summary = ""
+        elder_name = "Senhor"
         try:
-            resp = requests.get(f"{config.API_URL}/settings", timeout=2.0)
+            resp = requests.get(
+                f"{config.API_URL}/settings", 
+                headers={"X-Device-Token": config.DEVICE_TOKEN}, 
+                timeout=2.0
+            )
             if resp.status_code == 200:
-                profile_summary = resp.json().get("profile_summary", "")
+                data = resp.json()
+                profile_summary = data.get("profile_summary", "")
+                elder_name = data.get("elder_name", "Senhor")
             else:
                 profile_summary = config.PROFILE_SUMMARY
         except Exception as e:
@@ -94,16 +101,15 @@ class AIProcessor:
             profile_summary = config.PROFILE_SUMMARY
 
         # 2. Atualizar dinamicamente a mensagem de sistema inicial com o perfil
+        system_prompt = (
+            "Você é a Lyra, uma amiga e cuidadora virtual extremamente calorosa, empática e atenciosa. "
+            f"Sua missão é conversar com o idoso de forma natural. O nome dele é {elder_name}, portanto, "
+            f"trate-o pelo nome {elder_name} (ou Seu/Dona {elder_name}) de forma acolhedora. "
+            "Use sempre frases curtas, fáceis de entender. Responda em português do Brasil. "
+        )
         if profile_summary:
-            system_prompt = (
-                "Você é a Lyra, uma amiga e cuidadora virtual extremamente calorosa, empática e atenciosa. "
-                "Sua missão é conversar com o usuário de forma natural, como um ser humano faria. "
-                "Use frases curtas, fáceis de entender e acolhedoras. Aqui estão os fatos que você lembra sobre "
-                f"a vida e os gostos dele:\n{profile_summary}\n"
-                "Use essas informações sutilmente para demonstrar proximidade durante o papo. Responda sempre em português do Brasil."
-            )
-        else:
-            system_prompt = config.SYSTEM_PROMPT
+            system_prompt += f"Aqui estão os fatos que você lembra sobre a vida e os gostos dele:\n{profile_summary}"
+
         
         # Garante que temos pelo menos a mensagem de sistema no início
         if self._history and self._history[0]['role'] == 'system':
@@ -196,12 +202,17 @@ class AIProcessor:
             clean_result = result.upper().replace('.', '').strip()
             if clean_result and clean_result != "VAZIO":
                 # 1. GET settings atuais
-                resp = requests.get(f"{config.API_URL}/settings", timeout=2.0)
+                resp = requests.get(
+                    f"{config.API_URL}/settings", 
+                    headers={"X-Device-Token": config.DEVICE_TOKEN}, 
+                    timeout=2.0
+                )
                 if resp.status_code == 200:
                     current_settings = resp.json()
                 else:
                     logging.error(f"[Memória] Erro ao buscar configurações atuais no backend: HTTP {resp.status_code}")
                     return
+
                 
                 # 2. Mesclar e atualizar o profile_summary
                 old_summary = current_settings.get("profile_summary", "")
@@ -211,12 +222,18 @@ class AIProcessor:
                 current_settings.pop("id", None)
                 
                 # 3. PUT settings
-                put_resp = requests.put(f"{config.API_URL}/settings", json=current_settings, timeout=2.0)
+                put_resp = requests.put(
+                    f"{config.API_URL}/settings", 
+                    headers={"X-Device-Token": config.DEVICE_TOKEN}, 
+                    json=current_settings, 
+                    timeout=2.0
+                )
                 if put_resp.status_code == 200:
                     logging.info(f"[Memória] Profile summary atualizado com sucesso no backend. Novo perfil:\n{merged_summary}")
                     config.PROFILE_SUMMARY = merged_summary
                 else:
                     logging.error(f"[Memória] Erro ao enviar atualização de configurações: HTTP {put_resp.status_code}")
+
             else:
                 logging.info("[Memória] Nenhum fato novo extraído da conversa.")
         except Exception as e:

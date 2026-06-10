@@ -4,65 +4,83 @@ class LyraWebSocket {
   constructor() {
     this.ws = null;
     this.listeners = {};
-    this.tentativas = 0;
-    this.maxTentativas = 3;
+    this.delayReconexao = 2000; // Começa com 2s
     this.conectado = false;
-    this.desistiu = false;
+    this.timerReconexao = null;
+    this.desistiu = false; // Controle de desconexão manual
   }
 
   conectar(clientType = 'mobile') {
     if (this.desistiu) return;
+    
+    // Evita múltiplos agendamentos concorrentes
+    if (this.timerReconexao) {
+      clearTimeout(this.timerReconexao);
+      this.timerReconexao = null;
+    }
 
     try {
       this.ws = new WebSocket(`${WS_URL}?client_type=${clientType}`);
+      this._emitir('estado_alterado', { conectado: false, status: 'conectando' });
 
       this.ws.onopen = () => {
         this.conectado = true;
-        this.tentativas = 0;
-        this.desistiu = false;
-        console.log('[WebSocket] Conectado');
+        this.delayReconexao = 2000; // Reseta backoff com sucesso
+        console.log('[WebSocket] Conectado com sucesso.');
         this._emitir('conectado');
+        this._emitir('estado_alterado', { conectado: true, status: 'conectado' });
       };
 
       this.ws.onmessage = (event) => {
         try {
           const mensagem = JSON.parse(event.data);
           this._emitir(mensagem.event, mensagem.data);
-        } catch (e) {}
+        } catch (e) {
+          // Ignora JSONs malformatados
+        }
       };
 
-      // Silencia o erro — apenas loga discretamente
       this.ws.onerror = () => {
         this.conectado = false;
+        this._emitir('estado_alterado', { conectado: false, status: 'desconectado' });
       };
 
       this.ws.onclose = () => {
         this.conectado = false;
+        this._emitir('estado_alterado', { conectado: false, status: 'desconectado' });
         if (!this.desistiu) {
           this._tentarReconectar(clientType);
         }
       };
     } catch (e) {
-      // Ignora falha de conexão silenciosamente
+      this.conectado = false;
+      this._emitir('estado_alterado', { conectado: false, status: 'desconectado' });
+      if (!this.desistiu) {
+        this._tentarReconectar(clientType);
+      }
     }
   }
 
   _tentarReconectar(clientType) {
-    if (this.tentativas >= this.maxTentativas) {
-      // Desiste silenciosamente após 3 tentativas
-      this.desistiu = true;
-      return;
-    }
-    this.tentativas++;
-    const delay = this.tentativas * 5000;
-    setTimeout(() => {
-      if (!this.desistiu) this.conectar(clientType);
-    }, delay);
+    if (this.timerReconexao) return;
+
+    console.log(`[WebSocket] Reconectando em ${this.delayReconexao}ms...`);
+    this._emitir('estado_alterado', { conectado: false, status: 'reconectando', delay: this.delayReconexao });
+    
+    this.timerReconexao = setTimeout(() => {
+      this.timerReconexao = null;
+      this.conectar(clientType);
+    }, this.delayReconexao);
+
+    // Dobra o intervalo até atingir o teto de 30 segundos
+    this.delayReconexao = Math.min(this.delayReconexao * 2, 30000);
   }
 
   on(evento, callback) {
     if (!this.listeners[evento]) this.listeners[evento] = [];
     this.listeners[evento].push(callback);
+    
+    // Retorna função para desinscrever o listener de forma limpa
     return () => {
       this.listeners[evento] = this.listeners[evento].filter(cb => cb !== callback);
     };
@@ -70,21 +88,34 @@ class LyraWebSocket {
 
   _emitir(evento, dados) {
     if (this.listeners[evento]) {
-      this.listeners[evento].forEach(cb => cb(dados));
+      this.listeners[evento].forEach(cb => {
+        try {
+          cb(dados);
+        } catch (e) {
+          console.error(`[WebSocket] Erro na execução de callback para '${evento}':`, e);
+        }
+      });
     }
   }
 
   desconectar() {
     this.desistiu = true;
-    this.tentativas = 0;
-    if (this.ws) {
-      try { this.ws.close(); } catch (e) {}
+    if (this.timerReconexao) {
+      clearTimeout(this.timerReconexao);
+      this.timerReconexao = null;
     }
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch (e) {}
+    }
+    this.conectado = false;
+    this._emitir('estado_alterado', { conectado: false, status: 'desconectado' });
   }
 
   resetar() {
     this.desistiu = false;
-    this.tentativas = 0;
+    this.delayReconexao = 2000;
   }
 }
 

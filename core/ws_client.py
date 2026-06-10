@@ -13,8 +13,9 @@ class LyraWebSocketClient:
     Implementa reconexão automática com exponential backoff.
     """
     
-    def __init__(self, ws_url: str = None):
+    def __init__(self, ws_url: str = None, reminder_queue = None):
         self.ws_url = ws_url or config.WS_URL
+        self.reminder_queue = reminder_queue
         self.ws = None
         self.thread = None
         self.is_running = False
@@ -88,8 +89,8 @@ class LyraWebSocketClient:
             event_type = message.get("event")
             data = message.get("data") or message.get("payload") # suporta payload ou data
             
-            if event_type == "CONFIG_UPDATED" and data:
-                logging.info(f"[WebSocket] Recebida atualização de configuração: {data}")
+            if event_type in ["CONFIG_UPDATED", "STATUS_CHANGED"] and data:
+                logging.info(f"[WebSocket] Recebida atualização de estado/configuração: {data}")
                 self._apply_runtime_configs(data)
                 
         except json.JSONDecodeError:
@@ -115,6 +116,14 @@ class LyraWebSocketClient:
             if "profile_summary" in data:
                 config.PROFILE_SUMMARY = str(data["profile_summary"])
                 logging.info(f"[WebSocket] config.PROFILE_SUMMARY atualizado para: {config.PROFILE_SUMMARY}")
+                
+            if "is_away" in data:
+                new_away = bool(data["is_away"])
+                if config.IS_AWAY != new_away:
+                    config.IS_AWAY = new_away
+                    logging.info(f"[WebSocket] config.IS_AWAY atualizado para: {config.IS_AWAY}")
+                    if self.reminder_queue:
+                        self.reminder_queue.put({"type": "status_change", "is_away": new_away})
                 
             logging.info("[WebSocket] Atualização de configurações aplicada em runtime com sucesso.")
         except Exception as e:

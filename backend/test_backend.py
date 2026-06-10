@@ -12,10 +12,13 @@ from backend.database import Base, engine
 class TestBackendAPI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        import os
+        os.environ["TEST_MODE"] = "True"
         # Garante banco de dados de teste limpo recriando as tabelas
         Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
         cls.client = TestClient(app)
+
 
     def setUp(self):
         # Limpa conexões ativas do gerenciador global para evitar vazamento de estado
@@ -38,13 +41,25 @@ class TestBackendAPI(unittest.TestCase):
         self.assertIn("checkin_interval_hours", data)
         self.assertEqual(data["checkin_interval_hours"], 12)
         self.assertEqual(data["profile_summary"], "")
+        self.assertEqual(data["sleep_start_night"], "22:00")
+        self.assertEqual(data["sleep_end_night"], "07:00")
+        self.assertEqual(data["sleep_start_afternoon"], "13:30")
+        self.assertEqual(data["sleep_end_afternoon"], "15:30")
+        self.assertEqual(data["is_away"], False)
+        self.assertEqual(data["elder_name"], "Senhor")
 
         # PUT deve atualizar as configurações
         payload = {
             "checkin_interval_hours": 8,
             "emergency_contact_name": "Maria Silva",
             "emergency_contact_phone": "+55 11 98888-8888",
-            "profile_summary": "Gosta de futebol, tem 2 gatos"
+            "profile_summary": "Gosta de futebol, tem 2 gatos",
+            "sleep_start_night": "23:00",
+            "sleep_end_night": "06:00",
+            "sleep_start_afternoon": "14:00",
+            "sleep_end_afternoon": "15:00",
+            "is_away": True,
+            "elder_name": "João"
         }
         response = self.client.put("/settings", json=payload)
         self.assertEqual(response.status_code, 200)
@@ -52,6 +67,31 @@ class TestBackendAPI(unittest.TestCase):
         self.assertEqual(updated_data["checkin_interval_hours"], 8)
         self.assertEqual(updated_data["emergency_contact_name"], "Maria Silva")
         self.assertEqual(updated_data["profile_summary"], "Gosta de futebol, tem 2 gatos")
+        self.assertEqual(updated_data["sleep_start_night"], "23:00")
+        self.assertEqual(updated_data["sleep_end_night"], "06:00")
+        self.assertEqual(updated_data["sleep_start_afternoon"], "14:00")
+        self.assertEqual(updated_data["sleep_end_afternoon"], "15:00")
+        self.assertEqual(updated_data["is_away"], True)
+        self.assertEqual(updated_data["elder_name"], "João")
+
+    def test_set_away_status_endpoint(self):
+        # Configura is_away via endpoint POST /api/status/away
+        response = self.client.post("/api/status/away")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["is_away"], True)
+        self.assertIsNotNone(response.json()["away_start_time"])
+        self.assertIsNone(response.json()["away_end_time"])
+
+        # Verifica se atualizou nas configurações gerais
+        response = self.client.get("/settings")
+        self.assertEqual(response.json()["is_away"], True)
+
+        # Volta para False usando POST /api/status/home
+        response = self.client.post("/api/status/home")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["is_away"], False)
+        self.assertIsNotNone(response.json()["away_end_time"])
+
 
     def test_medication_crud(self):
         # 1. POST - Criar medicamento
@@ -124,6 +164,47 @@ class TestBackendAPI(unittest.TestCase):
         self.assertTrue(response.json()["resolved"])
         self.assertIsNotNone(response.json()["resolved_at"])
 
+    def test_task_crud(self):
+        # 1. POST - Criar tarefa
+        payload = {
+            "descricao": "Fazer exercícios leves",
+            "horarios": "09:00, 16:00",
+            "dias": "Seg, Qua, Sex"
+        }
+        response = self.client.post("/tasks", json=payload)
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertEqual(data["descricao"], "Fazer exercícios leves")
+        self.assertEqual(data["title"], "Fazer exercícios leves")
+        self.assertEqual(data["horarios"], ["09:00", "16:00"])
+        self.assertEqual(data["dias"], ["Seg", "Qua", "Sex"])
+        self.assertEqual(data["completed"], False)
+        self.assertEqual(data["concluido"], False)
+        task_id = data["id"]
+
+        # 2. GET - Listar tarefas
+        response = self.client.get("/tasks")
+        self.assertEqual(response.status_code, 200)
+        tasks = response.json()
+        self.assertTrue(len(tasks) > 0)
+        found = False
+        for t in tasks:
+            if t["id"] == task_id:
+                self.assertEqual(t["descricao"], "Fazer exercícios leves")
+                found = True
+                break
+        self.assertTrue(found)
+
+        # 3. DELETE - Remover tarefa
+        response = self.client.delete(f"/tasks/{task_id}")
+        self.assertEqual(response.status_code, 204)
+
+        # 4. GET - Listar novamente e verificar remoção
+        response = self.client.get("/tasks")
+        self.assertEqual(response.status_code, 200)
+        task_ids = [t["id"] for t in response.json()]
+        self.assertNotIn(task_id, task_ids)
+
     def test_websocket_connection_and_broadcast(self):
         # Para evitar travamentos de AnyIO/WebSocket no Windows durante os testes,
         # testamos a validação do endpoint e a lógica do ConnectionManager com mocks.
@@ -162,5 +243,88 @@ class TestBackendAPI(unittest.TestCase):
         self.assertNotIn(ws_motor, manager.active_connections["motor"])
         self.assertNotIn(ws_mobile, manager.active_connections["mobile"])
 
+    def test_auth_register_login_and_scoping(self):
+        # 1. Cadastro de cuidador
+        reg_payload = {
+            "username": "caregiver1",
+            "password": "securepassword"
+        }
+        response = self.client.post("/api/auth/register", json=reg_payload)
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertIn("token", data)
+        self.assertIn("access_code", data)
+        self.assertEqual(data["username"], "caregiver1")
+        access_code = data["access_code"]
+        token = data["token"]
+        
+        # 2. Login de cuidador
+        login_payload = {
+            "username": "caregiver1",
+            "password": "securepassword"
+        }
+        response = self.client.post("/api/auth/login", json=login_payload)
+        self.assertEqual(response.status_code, 200)
+        login_data = response.json()
+        self.assertEqual(login_data["token"], token)
+        self.assertEqual(login_data["access_code"], access_code)
+        
+        # 3. Login do idoso via código de acesso
+        elder_payload = {
+            "code": access_code
+        }
+        response = self.client.post("/api/auth/login-elder", json=elder_payload)
+        self.assertEqual(response.status_code, 200)
+        elder_data = response.json()
+        self.assertIn("token", elder_data)
+        
+        # 4. Scoping: medicamentos criados sob o usuário autenticado
+        headers = {"Authorization": f"Bearer {token}"}
+        med_payload = {
+            "name": "Ibuprofeno",
+            "dosage": "400mg",
+            "time": "14:00",
+            "active": True
+        }
+        # Cria medicamento com autenticação
+        response = self.client.post("/medications", json=med_payload, headers=headers)
+        self.assertEqual(response.status_code, 201)
+        med_id = response.json()["id"]
+        
+        # Listagem deve trazer o medicamento sob o escopo correto
+        response = self.client.get("/medications", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+        self.assertEqual(response.json()[0]["name"], "Ibuprofeno")
+        
+        # 5. Toggle de tarefas
+        task_payload = {
+            "descricao": "Beber água",
+            "horarios": "10:00",
+            "dias": "Seg, Ter",
+            "completed": False
+        }
+        response = self.client.post("/api/tasks", json=task_payload, headers=headers)
+        self.assertEqual(response.status_code, 201)
+        task_id = response.json()["id"]
+        self.assertEqual(response.json()["completed"], False)
+        
+        # Toggle para True
+        response = self.client.patch(f"/api/tasks/{task_id}/toggle", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["completed"], True)
+        
+        # 6. Desconfirmar medicamento
+        # Confirma primeiro
+        response = self.client.put(f"/medications/{med_id}/confirm", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "tomado")
+        
+        # Desconfirma
+        response = self.client.put(f"/medications/{med_id}/unconfirm", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "ativo")
+
 if __name__ == "__main__":
     unittest.main()
+

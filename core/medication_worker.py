@@ -54,6 +54,9 @@ class MedicationWorker(threading.Thread):
 
     def _check_schedule(self):
         """Busca a agenda do backend e agenda os lembretes do horário."""
+        if getattr(config, "IS_AWAY", False):
+            return
+            
         today_str = time.strftime("%Y-%m-%d")
         current_time = time.strftime("%H:%M")  # ex: "08:00"
         
@@ -104,7 +107,7 @@ class MedicationWorker(threading.Thread):
         """Busca a lista de medicamentos via GET http://localhost:8000/medications."""
         url = f"{config.API_URL}/medications"
         try:
-            response = requests.get(url, timeout=5)
+            response = requests.get(url, headers={"X-Device-Token": config.DEVICE_TOKEN}, timeout=5)
             if response.status_code == 200:
                 return response.json()
             else:
@@ -122,10 +125,11 @@ class MedicationWorker(threading.Thread):
             "resolved": False
         }
         try:
-            response = requests.post(url, json=payload, timeout=5)
+            response = requests.post(url, headers={"X-Device-Token": config.DEVICE_TOKEN}, json=payload, timeout=5)
             if response.status_code in [200, 201]:
                 logging.info(f"[MedicationWorker] Alerta de medicação não tomada enviado com sucesso.")
             else:
                 logging.error(f"[MedicationWorker] Erro ao enviar alerta: Código HTTP {response.status_code}")
         except requests.exceptions.RequestException as e:
             logging.error(f"[MedicationWorker] Backend FastAPI fora do ar ao enviar alerta: {e}")
+

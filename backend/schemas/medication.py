@@ -8,6 +8,7 @@ class MedicationBase(BaseModel):
     time: str = Field(..., min_length=1)
     active: bool = True
     status: str = "ativo"
+    critical: bool = False
 
 class MedicationCreate(MedicationBase):
     pass
