@@ -21,8 +21,8 @@ export const listarMedicamentos = async () => {
 };
 
 // POST /medications
-export const criarMedicamento = async (name, dosage, time) => {
-  const { data } = await api.post('/medications', { name, dosage, time, active: true });
+export const criarMedicamento = async (name, dosage, time, days) => { 
+  const { data } = await api.post('/medications', { name, dosage, time, days, active: true });
   return data;
 };
 
@@ -41,6 +41,22 @@ export const removerMedicamento = async (id) => {
 export const confirmarMedicamento = async (id) => {
   const { data } = await api.put(`/medications/${id}/confirm`);
   return data;
+};
+
+// ── Tarefas ───────────────────────────────────────────────────────────────────
+
+export const listarTarefas = async () => {
+  const { data } = await api.get('/tasks');
+  return data;
+};
+
+export const criarTarefa = async (descricao, horarios, dias) => {
+  const { data } = await api.post('/tasks', { descricao, horarios, dias });
+  return data;
+};
+
+export const removerTarefa = async (id) => {
+  await api.delete(`/tasks/${id}`);
 };
 
 // ── Alertas ───────────────────────────────────────────────────────────────────

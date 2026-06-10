@@ -60,7 +60,8 @@ export default function IdosoScreen({ navigation }) {
       const novo = await criarMedicamento(
         nomeMed,
         dosagemMed,
-        horariosMed.join(', '), // 👈 TODOS os horários
+        horariosMed.join(', '),
+        diasMed.join(', '),
       );
 
       setMedicamentos((p) => [...p, { ...novo, active: true }]);
@@ -68,8 +69,8 @@ export default function IdosoScreen({ navigation }) {
       setModalMed(false);
       setNomeMed('');
       setDosagemMed('');
-      setHorariosMed(['08:00']); // 👈 reset correto
-      setDiasMed([]); // 👈 reset dias também
+      setHorariosMed(['08:00']); 
+      setDiasMed([]); 
     } catch (err) {
       console.log("❌ ERRO:", err);
       Alert.alert(

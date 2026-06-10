@@ -10,6 +10,7 @@ import {
   listarAlertas, resolverAlerta,
   listarMedicamentos, criarMedicamento, removerMedicamento,
   buscarConfiguracoes, salvarConfiguracoes,
+  listarTarefas, criarTarefa, removerTarefa
 } from '../services/api';
 import { wsService } from '../services/websocket';
 import { encerrarSessao, lerConta, lerUsuario } from '../services/armazenamento';
@@ -63,9 +64,10 @@ export default function FamiliarScreen({ navigation }) {
     wsService.on('MEDICATION_CONFIRMED', () => carregarMedicamentos());
   };
 
+  const carregarTarefas = async () => { try { setTarefas(await listarTarefas()); } catch {} };
   const carregarTudo = async () => {
     setRecarregando(true);
-    await Promise.all([carregarAlertas(), carregarMedicamentos(), carregarConfig(), carregarConta()]);
+    await Promise.all([carregarAlertas(), carregarMedicamentos(), carregarTarefas(), carregarConfig(), carregarConta()]);
     setRecarregando(false);
   };
   const carregarConta = async () => { try { const c = await lerConta(); if (c.codigo) setCodigoAcesso(c.codigo); if (c.usuario) setNomeUsuario(c.usuario); } catch {} };
@@ -105,6 +107,7 @@ export default function FamiliarScreen({ navigation }) {
       console.error("❌ [ERRO AO SAIR]:", error);
     }
   };
+
   const handleAdicionarMed = async () => {
     console.log("[Passo 1] Botão de adicionar clicado!");
     
@@ -117,7 +120,8 @@ export default function FamiliarScreen({ navigation }) {
     console.log("[Passo 3] Enviando requisição para o backend...", { 
       nome: nomeMed, 
       dosagem: dosagemMed, 
-      horario: horariosMed[0]
+      horarios: horariosMed.join(', '), 
+      dias: diasMed.join(', ')
     });
     
     setSalvandoMed(true);
@@ -126,7 +130,8 @@ export default function FamiliarScreen({ navigation }) {
       const novo = await criarMedicamento(
         nomeMed,
         dosagemMed,
-        horariosMed[0]
+        horariosMed.join(', '), // Envia todos os horários numa única string
+        diasMed.join(', ')      // Envia todos os dias numa única string
       );
       console.log("[Passo 4] Sucesso! Backend devolveu:", novo);
       
@@ -137,6 +142,7 @@ export default function FamiliarScreen({ navigation }) {
       setNomeMed('');
       setDosagemMed('');
       setHorariosMed(['08:00']);
+      setDiasMed([]); 
     } catch (error) {
       console.log("[ERRO] Falha ao comunicar com o backend!");
       console.log("Mensagem:", error.message);
@@ -148,26 +154,35 @@ export default function FamiliarScreen({ navigation }) {
       setSalvandoMed(false);
     }
   };
-  const handleAdicionarTarefa = () => {
-  if (!descricaoTarefa.trim()) {
-    Alert.alert('Atenção', 'Informe a descrição da tarefa.');
-    return;
-  }
+  
+  const handleAdicionarTarefa = async () => {
+    if (!descricaoTarefa.trim()) {
+      Alert.alert('Atenção', 'Informe a descrição da tarefa.');
+      return;
+    }
 
-  const nova = {
-    id: Date.now(),
-    descricao: descricaoTarefa,
-    horarios: horariosTarefa,
-    dias: diasTarefa,
+    try {
+      // Envia a requisição para o seu backend salvar no banco de dados
+      const nova = await criarTarefa(
+        descricaoTarefa, 
+        horariosTarefa.join(', '), 
+        diasTarefa.join(', ')
+      );
+
+      // Atualiza a lista na tela com o item devolvido pelo servidor
+      setTarefas(prev => [...prev, nova]);
+
+      // Limpa o formulário e fecha o modal
+      setDescricaoTarefa('');
+      setHorariosTarefa(['08:00']);
+      setDiasTarefa([]);
+      setModalTarefa(false);
+    } catch (err) {
+      console.log("[ERRO TAREFA]:", err.message);
+      Alert.alert('Erro', 'Não foi possível salvar a tarefa no servidor.');
+    }
   };
 
-  setTarefas(prev => [...prev, nova]);
-
-  setDescricaoTarefa('');
-  setHorariosTarefa(['08:00']);
-  setDiasTarefa([]);
-  setModalTarefa(false);
-};
   const handleRemoverMed = (med) => { Alert.alert('Remover', `Remover ${med.name}?`, [{ text: 'Cancelar' }, { text: 'Remover', style: 'destructive', onPress: async () => { await removerMedicamento(med.id); setMedicamentos(p => p.filter(m => m.id !== med.id)); }}]); };
   const handleResolverAlerta = async (a) => { await resolverAlerta(a.id); setAlertas(p => p.map(x => x.id === a.id ? { ...x, resolved: true } : x)); };
   const handleRemoverTarefa = (t) => {
@@ -179,8 +194,15 @@ export default function FamiliarScreen({ navigation }) {
         {
           text: 'Excluir',
           style: 'destructive',
-          onPress: () => {
-            setTarefas(prev => prev.filter(item => item.id !== t.id));
+          onPress: async () => {
+            try {
+              // Primeiro apaga no banco de dados do backend
+              await removerTarefa(t.id);
+              // Se deu certo, remove da tela
+              setTarefas(prev => prev.filter(item => item.id !== t.id));
+            } catch (err) {
+              Alert.alert('Erro', 'Não foi possível apagar a tarefa no servidor.');
+            }
           }
         }
       ]
