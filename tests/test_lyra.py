@@ -74,6 +74,7 @@ class TestApplicationAudioStateMachine(unittest.TestCase):
             self.app.ws_client = MagicMock()
             self.app.medication_worker = MagicMock()
             self.app.audio_handler.contains_sos_keywords.return_value = False
+            self.app._is_in_sleep_window = MagicMock(return_value=False)
 
     def test_audio_success(self):
         self.app.consecutive_failures = 3
@@ -432,8 +433,9 @@ class TestLyraResilience(unittest.TestCase):
         self.assertIsNotNone(self.app.reconciliation_scheduled_time)
         self.assertTrue(self.app.reconciliation_scheduled_time > self.time.time())
 
+    @patch('app.requests.put')
     @patch('app.requests.get')
-    def test_medication_reconciliation_logic(self, mock_get):
+    def test_medication_reconciliation_logic(self, mock_get, mock_put):
         # Setup missed meds query
         mock_get.return_value = MagicMock(status_code=200, json=lambda: [
             {"id": 1, "name": "Remedio A", "time": "09:00", "active": True, "status": "ativo"},
@@ -469,8 +471,9 @@ class TestLyraResilience(unittest.TestCase):
         self.assertEqual(self.app.away_start_time, None)
         self.assertEqual(self.app.away_end_time, None)
 
+    @patch('app.requests.put')
     @patch('app.requests.get')
-    def test_medication_reconciliation_midnight_crossing(self, mock_get):
+    def test_medication_reconciliation_midnight_crossing(self, mock_get, mock_put):
         # Setup missed meds query:
         # Remedio A: 23:45 (missed)
         # Remedio B: 00:30 (missed)
@@ -528,6 +531,21 @@ class TestLyraResilience(unittest.TestCase):
     def test_real_ollama_classification(self):
         # Este teste faz uma chamada real ao Ollama (sem mocks)
         # para garantir que o modelo qwen2.5:3b responda conforme esperado.
+        import ollama
+        try:
+            models_response = ollama.list()
+            models_list = []
+            if hasattr(models_response, 'models'):
+                models_list = [m.model for m in models_response.models]
+            elif isinstance(models_response, dict) and 'models' in models_response:
+                models_list = [m.get('name', m.get('model', '')) for m in models_response['models']]
+            if not any(m == "qwen2.5:3b" or m.startswith("qwen2.5:3b:") for m in models_list):
+                self.skipTest("Modelo qwen2.5:3b não instalado no Ollama")
+                return
+        except Exception as e:
+            self.skipTest(f"Ollama offline: {e}")
+            return
+
         try:
             # Configura o modelo como string para evitar erro de validação do Pydantic
             self.app.ai_processor._model = "qwen2.5:3b"
@@ -555,7 +573,15 @@ class TestLyraResilience(unittest.TestCase):
         # Teste de integração real com o Ollama para extração de memória
         import ollama
         try:
-            ollama.list()
+            models_response = ollama.list()
+            models_list = []
+            if hasattr(models_response, 'models'):
+                models_list = [m.model for m in models_response.models]
+            elif isinstance(models_response, dict) and 'models' in models_response:
+                models_list = [m.get('name', m.get('model', '')) for m in models_response['models']]
+            if not any(m == "qwen2.5:3b" or m.startswith("qwen2.5:3b:") for m in models_list):
+                self.skipTest("Modelo qwen2.5:3b não instalado no Ollama")
+                return
         except Exception as e:
             self.skipTest(f"Ollama offline: {e}")
             return

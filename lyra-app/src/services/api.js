@@ -2,7 +2,7 @@ import axios from 'axios';
 import { lerToken } from './armazenamento';
 
 // A URL do backend é consumida dinamicamente a partir do ambiente do Expo
-export const BASE_URL = 'http://172.20.10.2:8000'; 
+export const BASE_URL = 'http://192.168.0.10:8000'; 
 export const WS_URL = BASE_URL.replace(/^http/, 'ws') + '/ws';
 
 const api = axios.create({
