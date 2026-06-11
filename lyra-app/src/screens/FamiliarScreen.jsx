@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, RefreshControl, Modal, Dimensions, Platform, Switch
+  TextInput, Alert, RefreshControl, Modal, Platform, Switch
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -16,7 +16,7 @@ import {
 } from '../services/api';
 
 import { wsService } from '../services/websocket';
-import { encerrarSessao, lerConta, lerUsuario } from '../services/armazenamento';
+import { encerrarSessao, lerConta } from '../services/armazenamento';
 
 const ABAS = [
   { id: 'inicio',   label: 'Início',   icone: 'grid' },
@@ -24,6 +24,16 @@ const ABAS = [
   { id: 'alertas',  label: 'Alertas',  icone: 'bell' },
   { id: 'config',   label: 'Config',   icone: 'user' },
 ];
+
+const separarLista = (valor) => {
+  if (Array.isArray(valor)) return valor;
+  if (typeof valor === 'string') {
+    return valor.split(',').map(item => item.trim()).filter(Boolean);
+  }
+  return [];
+};
+
+const primeiroHorario = (valor) => separarLista(valor)[0] || '00:00';
 
 export default function FamiliarScreen({ navigation }) {
   const [aba, setAba] = useState('inicio');
@@ -37,7 +47,6 @@ export default function FamiliarScreen({ navigation }) {
   const [dosagemMed, setDosagemMed] = useState('');
   const [horariosMed, setHorariosMed] = useState(['08:00']);
   const [diasMed, setDiasMed] = useState([]);
-  const [diasSemana, setDiasSemana] = useState([]);
   const [salvandoMed, setSalvandoMed] = useState(false);
   const [tarefas, setTarefas] = useState([]);
   const [modalTarefa, setModalTarefa] = useState(false);
@@ -78,7 +87,16 @@ export default function FamiliarScreen({ navigation }) {
     });
 
     wsService.on('SOS_TRIGGERED', (d) => {
-      setAlertas(p => [{ id: d.alert_id, type: 'SOS', resolved: false, timestamp: d.timestamp }, ...p]);
+      if (!d?.alert_id) {
+        carregarAlertas();
+        setAba('alertas');
+        return;
+      }
+      setAlertas(p => (
+        p.some(a => a.id === d.alert_id)
+          ? p
+          : [{ id: d.alert_id, type: d.type || 'SOS', resolved: false, timestamp: d.timestamp || new Date().toISOString() }, ...p]
+      ));
       setSosLogs([]);
       setAba('alertas');
     });
@@ -86,20 +104,21 @@ export default function FamiliarScreen({ navigation }) {
       setSosLogs(p => [...p, d.text]);
     });
     wsService.on('MEDICATION_CONFIRMED', () => carregarMedicamentos());
+    wsService.on('TASKS_UPDATED', () => carregarTarefas());
     wsService.on('STATUS_CHANGED', (d) => {
       setIsAway(d.is_away);
     });
   };
 
-  const carregarTarefas = async () => { try { setTarefas(await listarTarefas()); } catch {} };
+  const carregarTarefas = async () => { try { setTarefas(await listarTarefas()); } catch (error) { console.warn('[FamiliarScreen] Erro ao carregar tarefas:', error); } };
   const carregarTudo = async () => {
     setRecarregando(true);
     await Promise.all([carregarAlertas(), carregarMedicamentos(), carregarTarefas(), carregarConfig(), carregarConta()]);
     setRecarregando(false);
   };
-  const carregarConta = async () => { try { const c = await lerConta(); if (c.codigo) setCodigoAcesso(c.codigo); if (c.usuario) setNomeUsuario(c.usuario); } catch {} };
-  const carregarAlertas = async () => { try { setAlertas(await listarAlertas()); } catch {} };
-  const carregarMedicamentos = async () => { try { setMedicamentos(await listarMedicamentos()); } catch {} };
+  const carregarConta = async () => { try { const c = await lerConta(); if (c.codigo) setCodigoAcesso(c.codigo); if (c.usuario) setNomeUsuario(c.usuario); } catch (error) { console.warn('[FamiliarScreen] Erro ao carregar conta:', error); } };
+  const carregarAlertas = async () => { try { setAlertas(await listarAlertas()); } catch (error) { console.warn('[FamiliarScreen] Erro ao carregar alertas:', error); } };
+  const carregarMedicamentos = async () => { try { setMedicamentos(await listarMedicamentos()); } catch (error) { console.warn('[FamiliarScreen] Erro ao carregar medicamentos:', error); } };
   const carregarConfig = async () => {
     try {
       const d = await buscarConfiguracoes();
@@ -112,7 +131,9 @@ export default function FamiliarScreen({ navigation }) {
       setSleepStartAfternoon(d.sleep_start_afternoon || '13:30');
       setSleepEndAfternoon(d.sleep_end_afternoon || '15:30');
       setIsAway(d.is_away || false);
-    } catch {}
+    } catch (error) {
+      console.warn('[FamiliarScreen] Erro ao carregar configurações:', error);
+    }
   };
 
   const handleSair = async () => {
@@ -272,21 +293,26 @@ export default function FamiliarScreen({ navigation }) {
   const naoResolvidos = alertas.filter(a => !a.resolved).length;
   const confirmados = medicamentos.filter(m => m.status === 'tomado').length;
   const rotinaHoje = [
-    ...medicamentos.map(m => ({
-      id: `med-${m.id}`,
-      tipo: 'medicamento',
-      titulo: m.name,
-      horario: m.time || horariosMed[0] || '00:00',
-      concluido: m.status === 'tomado',
-      dosagem: m.dosage,
-    })),
+    ...medicamentos.flatMap(m => {
+      const horarios = separarLista(m.time);
+      return (horarios.length > 0 ? horarios : ['00:00']).map((horario, index) => ({
+        id: `med-${m.id}-${index}`,
+        tipo: 'medicamento',
+        titulo: m.name,
+        horario,
+        concluido: m.status === 'tomado',
+        dosagem: m.dosage,
+        dias: separarLista(m.days),
+      }));
+    }),
 
     ...tarefas.map(t => ({
       id: `tar-${t.id}`,
       tipo: 'tarefa',
       titulo: t.descricao,
-      horario: t.horarios?.[0] || '00:00',
+      horario: primeiroHorario(t.horarios),
       concluido: t.concluido || false,
+      dias: separarLista(t.dias),
     })),
   ].sort((a, b) => a.horario.localeCompare(b.horario));
 
@@ -354,7 +380,7 @@ export default function FamiliarScreen({ navigation }) {
     }
 
     if (item.tipo === 'medicamento') {
-      const novoStatus = item.concluido ? 'pendente' : 'tomado';
+      const novoStatus = item.concluido ? 'ativo' : 'tomado';
       // Atualização otimista
       setMedicamentos(prev =>
         prev.map(m =>
@@ -374,7 +400,7 @@ export default function FamiliarScreen({ navigation }) {
         setMedicamentos(prev =>
           prev.map(m =>
             m.id === rawId
-              ? { ...m, status: item.concluido ? 'tomado' : 'pendente' }
+              ? { ...m, status: item.concluido ? 'tomado' : 'ativo' }
               : m
           )
         );
@@ -745,7 +771,13 @@ function AbaRemedios({
       {meds.map(m => (
         <View key={m.id} style={s.medRowCard}>
           <View style={s.medRowIcon}><Feather name="file-text" size={18} color={CORES.primaria} /></View>
-          <View style={{ flex: 1 }}><Text style={s.medRowName}>{m.name}</Text><Text style={s.medRowTime}>{m.dosage} às {m.time}</Text></View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.medRowName}>{m.name}</Text>
+            <Text style={s.medRowTime}>{m.dosage} às {m.time}</Text>
+            {separarLista(m.days).length > 0 && (
+              <Text style={s.medRowTime}>{separarLista(m.days).join(', ')}</Text>
+            )}
+          </View>
           <TouchableOpacity onPress={() => onRem(m)} style={s.delBtn}><Feather name="trash" size={16} color={CORES.erro} /></TouchableOpacity>
         </View>
       ))}
@@ -770,11 +802,11 @@ function AbaRemedios({
             <Text style={s.medRowName}>{t.descricao}</Text>
 
             <Text style={s.medRowTime}>
-              {t.horarios?.join(', ')}
+              {separarLista(t.horarios).join(', ')}
             </Text>
 
             <Text style={s.medRowTime}>
-              {t.dias?.join(', ')}
+              {separarLista(t.dias).join(', ')}
             </Text>
           </View>
 

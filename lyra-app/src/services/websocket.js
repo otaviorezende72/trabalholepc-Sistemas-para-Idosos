@@ -119,6 +119,7 @@ class LyraWebSocket {
   resetar() {
     this.desistiu = false;
     this.delayReconexao = 2000;
+    this.listeners = {};
   }
 }
 

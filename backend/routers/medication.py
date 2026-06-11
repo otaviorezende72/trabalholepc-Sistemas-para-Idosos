@@ -19,6 +19,7 @@ def create_medication(payload: MedicationCreate, db: Session = Depends(get_db), 
         name=payload.name,
         dosage=payload.dosage,
         time=payload.time,
+        days=payload.days,
         active=payload.active,
         critical=payload.critical,
         elder_id=current_user.elder_id
@@ -40,6 +41,7 @@ def update_medication(medication_id: int, payload: MedicationUpdate, db: Session
     med.name = payload.name
     med.dosage = payload.dosage
     med.time = payload.time
+    med.days = payload.days
     med.active = payload.active
     med.critical = payload.critical
     
