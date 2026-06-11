@@ -18,6 +18,14 @@ import { encerrarSessao } from '../services/armazenamento';
 
 const { width: SW } = Dimensions.get('window');
 
+const separarLista = (valor) => {
+  if (Array.isArray(valor)) return valor;
+  if (typeof valor === 'string') {
+    return valor.split(',').map(item => item.trim()).filter(Boolean);
+  }
+  return [];
+};
+
 export default function IdosoScreen({ navigation }) {
   const [medicamentos, setMedicamentos] = useState([]);
   const [medAtivo, setMedAtivo] = useState(null);
@@ -74,15 +82,7 @@ export default function IdosoScreen({ navigation }) {
     setSosAtivado(true);
     Vibration.vibrate([0, 400, 200, 400]);
 
-    // 2. Dispara o evento SOS_TRIGGERED via WebSocket em background
-    if (wsService.ws && wsService.conectado) {
-      wsService.ws.send(JSON.stringify({
-        event: 'SOS_TRIGGERED',
-        data: { type: 'SOS', timestamp: new Date().toISOString() }
-      }));
-    }
-
-    // 3. Dispara a criação do alerta na API HTTP
+    // Cria o alerta na API HTTP; o backend transmite o evento com alert_id.
     try {
       await criarAlerta('SOS');
     } catch (err) {
@@ -371,9 +371,9 @@ export default function IdosoScreen({ navigation }) {
                 </Text>
               )}
 
-              {med.days && Array.isArray(med.days) && (
+              {separarLista(med.days).length > 0 && (
                 <Text style={s.medCardDosagem}>
-                  📅 {med.days.join(', ')}
+                  📅 {separarLista(med.days).join(', ')}
                 </Text>
               )}
             </View>

@@ -6,6 +6,7 @@ class MedicationBase(BaseModel):
     name: str = Field(..., min_length=1)
     dosage: str = Field(..., min_length=1)
     time: str = Field(..., min_length=1)
+    days: str = ""
     active: bool = True
     status: str = "ativo"
     critical: bool = False

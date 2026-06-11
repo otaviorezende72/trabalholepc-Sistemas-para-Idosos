@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -23,6 +24,10 @@ async def lifespan(app: FastAPI):
     # Cria as tabelas do SQLite no boot se não existirem (Auto-healing)
     logging.info("[lifespan] Inicializando banco de dados SQLite...")
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        columns = [col["name"] for col in inspect(conn).get_columns("medications")]
+        if "days" not in columns:
+            conn.execute(text("ALTER TABLE medications ADD COLUMN days VARCHAR NOT NULL DEFAULT ''"))
     yield
     logging.info("[lifespan] Encerrando backend...")
 
