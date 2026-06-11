@@ -389,12 +389,23 @@ export default function FamiliarScreen({ navigation }) {
       {/* Header CliniQ style - Fundo suave, botões de ação arredondados */}
       <View style={s.header}>
         <View style={s.headerContent}>
-          <TouchableOpacity style={s.iconBtn} onPress={handleSair}><Feather name="chevron-left" size={20} color={CORES.primaria} /></TouchableOpacity>
-          <TouchableOpacity style={s.iconBtn} onPress={carregarTudo}><Feather name="refresh-cw" size={18} color={CORES.primaria} /></TouchableOpacity>
+          <TouchableOpacity style={s.iconBtn} onPress={handleSair}>
+            <Feather name="chevron-left" size={20} color={CORES.primaria} />
+          </TouchableOpacity>
+          
+          {/* 🟢 Título e Saudação agrupados no centro */}
+          <View style={s.headerTitles}>
+            <Text style={s.headerTitle}>Lyra</Text>
+            <Text style={s.headerGreeting}>Olá, {nomeUsuario || 'Responsável'}</Text>
+          </View>
+          
+          <TouchableOpacity style={s.iconBtn} onPress={carregarTudo}>
+            <Feather name="refresh-cw" size={18} color={CORES.primaria} />
+          </TouchableOpacity>
         </View>
-        <View style={s.titleBox}>
-          <Text style={s.headerTitle}>Lyra</Text>
-          <Text style={s.headerGreeting}>Olá, {nomeUsuario || 'Responsável'}</Text>
+
+        {/* 🟢 Controles Lado a Lado */}
+        <View style={s.statusControlsRow}>
           
           {/* Indicador de Status da Conexão em Tempo Real */}
           <View style={[
@@ -416,7 +427,7 @@ export default function FamiliarScreen({ navigation }) {
           {/* Switch do Modo Ausente */}
           <View style={s.awaySwitchRow}>
             <Text style={s.awaySwitchLabel}>
-              {isAway ? 'Idoso Ausente (Modo Viagem)' : 'Idoso em Casa'}
+              {isAway ? 'Ausente' : 'Em Casa'}
             </Text>
             <Switch
               value={isAway}
@@ -853,34 +864,83 @@ const s = StyleSheet.create({
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   iconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: CORES.branco, alignItems: 'center', justifyContent: 'center', ...SOMBRA.pequena },
   iconBtnAction: { width: 40, height: 40, borderRadius: 20, backgroundColor: CORES.primaria, alignItems: 'center', justifyContent: 'center', ...SOMBRA.pequena },
-  titleBox: {
-  marginTop: 24,
-  alignItems: 'center',
-},
+  
+  // Header centralizado
+  headerTitles: {
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: CORES.primaria,
+    textAlign: 'center',
+  },
+  headerGreeting: {
+    fontSize: 14,
+    color: CORES.textoSecundario,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
 
-headerTitle: {
-  fontSize: 28,
-  fontWeight: '700',
-  color: CORES.primaria,
-  textAlign: 'center',
-},
-
-headerGreeting: {
-  fontSize: 15,
-  color: CORES.textoSecundario,
-  marginTop: 4,
-  textAlign: 'center',
-},
+  // Linha de status (Banner e Switch centralizados e próximos)
+  statusControlsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center', // 🟢 Mudado de space-between para center
+    alignItems: 'center',
+    gap: 16,                  // 🟢 Espaço fixo e curto entre os dois elementos
+    marginTop: 20,
+    paddingHorizontal: 12,
+  },
+  
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14, // 🟢 Aumentado de 10 para 14
+    paddingVertical: 8,    // 🟢 Aumentado de 6 para 8
+    borderRadius: 20,
+  },
+  
+  statusBannerConectado: {
+    backgroundColor: CORES.sucessoClaro,
+  },
+  
+  statusBannerReconectando: {
+    backgroundColor: CORES.alertaClaro,
+  },
+  
+  statusPonto: {
+    width: 8,               // 🟢 Aumentado de 6 para 8
+    height: 8,              // 🟢 Aumentado de 6 para 8
+    borderRadius: 4,        // 🟢 Ajustado (metade do tamanho)
+    marginRight: 8,         // 🟢 Aumentado de 6 para 8
+  },
+  
+  statusBannerTexto: {
+    fontSize: 13,           // 🟢 Aumentado de 11 para 13
+    fontWeight: '700',
+  },
+  
+  awaySwitchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,                 // 🟢 Espaço sutil entre o texto e o switch
+  },
+  
+  awaySwitchLabel: {
+    fontSize: 14,           // 🟢 Aumentado de 12 para 14
+    fontWeight: '700',
+    color: CORES.texto,
+  },
   
   scroll: { flex: 1 },
   secao: { paddingHorizontal: 24 },
   sectionTitle: {
-  fontSize: 18,
-  fontWeight: '700',
-  color: CORES.texto,
-  marginVertical: 16,
-  textAlign: 'center',
-},
+    fontSize: 18,
+    fontWeight: '700',
+    color: CORES.texto,
+    marginVertical: 16,
+    textAlign: 'center',
+  },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 
   // Stats CliniQ style
@@ -932,71 +992,39 @@ headerGreeting: {
   modalTitle: { fontSize: 20, fontWeight: '700', color: CORES.texto, marginBottom: 24 },
 
   daysContainer: {
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  gap: 8,
-  marginTop: 10,
-},
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  dayChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: CORES.secundaria,
+  },
+  dayChipSelected: {
+    backgroundColor: CORES.primaria,
+  },
+  dayChipText: {
+    color: CORES.texto,
+  },
+  dayChipTextSelected: {
+    color: CORES.branco,
+    fontWeight: '600',
+  },
 
-dayChip: {
-  paddingHorizontal: 12,
-  paddingVertical: 8,
-  borderRadius: 12,
-  backgroundColor: CORES.secundaria,
-},
-
-dayChipSelected: {
-  backgroundColor: CORES.primaria,
-},
-
-dayChipText: {
-  color: CORES.texto,
-},
-
-dayChipTextSelected: {
-  color: CORES.branco,
-  fontWeight: '600',
-},
-
-addTimeBtn: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginTop: 20,
-  marginBottom: 30, // 👈 espaço antes do botão Adicionar
-
-},
-
+  addTimeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    marginBottom: 30,
+  },
   addTimeText: {
     color: CORES.primaria,
     fontWeight: '600',
     marginLeft: 6,
-  },
-  statusBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginTop: 8,
-    alignSelf: 'center',
-  },
-  statusBannerConectado: {
-    backgroundColor: CORES.sucessoClaro,
-  },
-  statusBannerReconectando: {
-    backgroundColor: CORES.alertaClaro,
-  },
-  statusPonto: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
-  },
-  statusBannerTexto: {
-    fontSize: 12,
-    fontWeight: '600',
   },
   sosLogsContainer: {
     marginTop: 8,
@@ -1017,19 +1045,6 @@ addTimeBtn: {
     fontWeight: '600',
     color: '#374151',
     marginTop: 4,
-  },
-  awaySwitchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginTop: 12,
-    alignSelf: 'center',
-  },
-  awaySwitchLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: CORES.texto,
   },
   utilidadeContainer: {
     marginTop: 24,
