@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, RefreshControl, Modal, Dimensions, Platform
+  TextInput, Alert, RefreshControl, Modal, Dimensions, Platform, Switch
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -11,7 +11,8 @@ import {
   listarMedicamentos, criarMedicamento, removerMedicamento,
   buscarConfiguracoes, salvarConfiguracoes,
   listarTarefas, criarTarefa, removerTarefa,
-  confirmarMedicamento, desconfirmarMedicamento, toggleTarefa
+  confirmarMedicamento, desconfirmarMedicamento, toggleTarefa,
+  declararAusente, declararPresente, buscarClima, buscarFutebol, buscarNutricao
 } from '../services/api';
 
 import { wsService } from '../services/websocket';
@@ -53,6 +54,8 @@ export default function FamiliarScreen({ navigation }) {
   const [sleepStartAfternoon, setSleepStartAfternoon] = useState('13:30');
   const [sleepEndAfternoon, setSleepEndAfternoon] = useState('15:30');
   const [statusConexao, setStatusConexao] = useState('reconectando');
+  const [sosLogs, setSosLogs] = useState([]);
+  const [isAway, setIsAway] = useState(false);
   const DIAS_SEMANA = [
   'Seg',
   'Ter',
@@ -74,8 +77,18 @@ export default function FamiliarScreen({ navigation }) {
       setStatusConexao(estado.status);
     });
 
-    wsService.on('SOS_TRIGGERED', (d) => { setAlertas(p => [{ id: d.alert_id, type: 'SOS', resolved: false, timestamp: d.timestamp }, ...p]); setAba('alertas'); });
+    wsService.on('SOS_TRIGGERED', (d) => {
+      setAlertas(p => [{ id: d.alert_id, type: 'SOS', resolved: false, timestamp: d.timestamp }, ...p]);
+      setSosLogs([]);
+      setAba('alertas');
+    });
+    wsService.on('SOS_LOG_UPDATE', (d) => {
+      setSosLogs(p => [...p, d.text]);
+    });
     wsService.on('MEDICATION_CONFIRMED', () => carregarMedicamentos());
+    wsService.on('STATUS_CHANGED', (d) => {
+      setIsAway(d.is_away);
+    });
   };
 
   const carregarTarefas = async () => { try { setTarefas(await listarTarefas()); } catch {} };
@@ -98,6 +111,7 @@ export default function FamiliarScreen({ navigation }) {
       setSleepEndNight(d.sleep_end_night || '07:00');
       setSleepStartAfternoon(d.sleep_start_afternoon || '13:30');
       setSleepEndAfternoon(d.sleep_end_afternoon || '15:30');
+      setIsAway(d.is_away || false);
     } catch {}
   };
 
@@ -205,7 +219,7 @@ export default function FamiliarScreen({ navigation }) {
       setModalTarefa(false);
     } catch (err) {
       console.log("[ERRO TAREFA]:", err.message);
-      Alert.alert('Erro', 'Não foi possível salvar a tarefa no servidor.');
+      Alert.alert('Erro ao Salvar', 'Ops! O servidor demorou a responder. Tente salvar a tarefa novamente em alguns instantes.');
     }
   };
 
@@ -227,7 +241,7 @@ export default function FamiliarScreen({ navigation }) {
               // Se deu certo, remove da tela
               setTarefas(prev => prev.filter(item => item.id !== t.id));
             } catch (err) {
-              Alert.alert('Erro', 'Não foi possível apagar a tarefa no servidor.');
+              Alert.alert('Erro de Rede', 'Não foi possível apagar a tarefa. Verifique se o servidor está ativo.');
             }
           }
         }
@@ -252,7 +266,7 @@ export default function FamiliarScreen({ navigation }) {
       Alert.alert('Sucesso', 'Configurações salvas com sucesso!');
     } catch (error) {
       console.log("[ERRO CONFIG]:", error.message);
-      Alert.alert('Erro', 'Não foi possível salvar as configurações no servidor.');
+      Alert.alert('Erro ao Configurar', 'Não conseguimos salvar suas preferências. Verifique sua conexão com a internet.');
     }
   };
   const naoResolvidos = alertas.filter(a => !a.resolved).length;
@@ -290,6 +304,26 @@ export default function FamiliarScreen({ navigation }) {
         ? prev.filter(d => d !== dia)
         : [...prev, dia]
     );
+  };
+
+  const handleToggleAway = async (value) => {
+    const oldValue = isAway;
+    setIsAway(value); // Optimistic UI update
+    try {
+      if (value) {
+        const res = await declararAusente();
+        setIsAway(res.is_away);
+      } else {
+        const res = await declararPresente();
+        setIsAway(res.is_away);
+      }
+    } catch (err) {
+      setIsAway(oldValue); // Rollback
+      Alert.alert(
+        'Erro de Status',
+        'Não foi possível alterar o status de ausência. Verifique sua conexão.'
+      );
+    }
   };
 
   const toggleRotina = async (item) => {
@@ -378,6 +412,19 @@ export default function FamiliarScreen({ navigation }) {
               {statusConexao === 'conectado' ? 'Monitoramento Ativo' : 'Tentando Reconectar...'}
             </Text>
           </View>
+
+          {/* Switch do Modo Ausente */}
+          <View style={s.awaySwitchRow}>
+            <Text style={s.awaySwitchLabel}>
+              {isAway ? 'Idoso Ausente (Modo Viagem)' : 'Idoso em Casa'}
+            </Text>
+            <Switch
+              value={isAway}
+              onValueChange={handleToggleAway}
+              trackColor={{ false: '#D1D5DB', true: CORES.primariaClara }}
+              thumbColor={isAway ? CORES.primaria : '#F3F4F6'}
+            />
+          </View>
         </View>
       </View>
 
@@ -400,7 +447,7 @@ export default function FamiliarScreen({ navigation }) {
             onRemTarefa={handleRemoverTarefa}
           />
         }
-        {aba === 'alertas'  && <AbaAlertas alertas={alertas} onRes={handleResolverAlerta} />}
+        {aba === 'alertas'  && <AbaAlertas alertas={alertas} onRes={handleResolverAlerta} sosLogs={sosLogs} />}
         {aba === 'config'   && (
           <AbaConfig
             int={intervalo} setInt={setIntervalo}
@@ -614,6 +661,10 @@ function AbaInicio({nao, conf, meds, rotina, onToggle, onVer}) {
           <TouchableOpacity onPress={onVer} style={[s.statIconBottom, { backgroundColor: 'rgba(255,255,255,0.2)' }]}><Feather name="arrow-up-right" size={16} color={CORES.branco} /></TouchableOpacity>
         </View>
       </View>
+
+      {/* Cards de Utilidades Geriátricas */}
+      <CardsUtilidade />
+
       <Text style={s.sectionTitle}>Rotina de Hoje</Text>
       {rotina.map(item => (
         <View
@@ -729,18 +780,28 @@ function AbaRemedios({
   );
 }
 
-function AbaAlertas({ alertas, onRes }) {
+function AbaAlertas({ alertas, onRes, sosLogs }) {
   return (
     <View style={s.secao}>
       <Text style={s.sectionTitle}>Eventos & Alertas</Text>
       {alertas.map(a => (
-        <View key={a.id} style={[s.alertaCard, a.resolved && { opacity: 0.5 }]}>
-          <View style={[s.alertaIcon, a.type === 'SOS' && { backgroundColor: '#FEE2E2' }]}><Feather name={a.type === 'SOS' ? "alert-triangle" : "bell"} size={18} color={a.type === 'SOS' ? CORES.erro : CORES.primaria} /></View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.alertaTipo}>{a.type === 'SOS' ? 'Emergência' : 'Aviso'}</Text>
-            <Text style={s.alertaData}>{new Date(a.timestamp).toLocaleTimeString()}</Text>
+        <View key={a.id} style={{ marginBottom: 16 }}>
+          <View style={[s.alertaCard, a.resolved && { opacity: 0.5 }]}>
+            <View style={[s.alertaIcon, a.type === 'SOS' && { backgroundColor: '#FEE2E2' }]}><Feather name={a.type === 'SOS' ? "alert-triangle" : "bell"} size={18} color={a.type === 'SOS' ? CORES.erro : CORES.primaria} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.alertaTipo}>{a.type === 'SOS' ? 'Emergência' : 'Aviso'}</Text>
+              <Text style={s.alertaData}>{new Date(a.timestamp).toLocaleTimeString()}</Text>
+            </View>
+            {!a.resolved && <TouchableOpacity style={s.btnSolve} onPress={() => onRes(a)}><Text style={s.btnSolveTxt}>Resolver</Text></TouchableOpacity>}
           </View>
-          {!a.resolved && <TouchableOpacity style={s.btnSolve} onPress={() => onRes(a)}><Text style={s.btnSolveTxt}>Resolver</Text></TouchableOpacity>}
+          {a.type === 'SOS' && !a.resolved && sosLogs && sosLogs.length > 0 && (
+            <View style={s.sosLogsContainer}>
+              <Text style={s.sosLogsTitle}>Transcrição de Resposta do Idoso (Tempo Real):</Text>
+              {sosLogs.map((log, idx) => (
+                <Text key={idx} style={s.sosLogItem}>🗣️ "{log}"</Text>
+              ))}
+            </View>
+          )}
         </View>
       ))}
     </View>
@@ -937,4 +998,151 @@ addTimeBtn: {
     fontSize: 12,
     fontWeight: '600',
   },
+  sosLogsContainer: {
+    marginTop: 8,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
+  sosLogsTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#991B1B',
+    marginBottom: 8,
+  },
+  sosLogItem: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 4,
+  },
+  awaySwitchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 12,
+    alignSelf: 'center',
+  },
+  awaySwitchLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: CORES.texto,
+  },
+  utilidadeContainer: {
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  utilidadeSecaoTitulo: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: CORES.textoSecundario,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  utilidadeScroll: {
+    gap: 16,
+    paddingRight: 24,
+  },
+  utilidadeCard: {
+    width: 280,
+    flexDirection: 'row',
+    backgroundColor: CORES.branco,
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    ...SOMBRA.pequena,
+  },
+  utilidadeIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  utilidadeTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: CORES.texto,
+  },
+  utilidadeTexto: {
+    fontSize: 12,
+    color: CORES.textoSecundario,
+    marginTop: 4,
+    lineHeight: 16,
+  },
 });
+
+function CardsUtilidade() {
+  const [clima, setClima] = useState(null);
+  const [futebol, setFutebol] = useState(null);
+  const [nutricao, setNutricao] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUtils = async () => {
+      try {
+        const [dataClima, dataFut, dataNutri] = await Promise.all([
+          buscarClima(),
+          buscarFutebol(),
+          buscarNutricao()
+        ]);
+        setClima(dataClima);
+        setFutebol(dataFut);
+        setNutricao(dataNutri);
+      } catch (e) {
+        console.log('Erro ao carregar cards utilitários:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUtils();
+  }, []);
+
+  if (loading) return null;
+
+  return (
+    <View style={s.utilidadeContainer}>
+      <Text style={s.utilidadeSecaoTitulo}>Resumos Diários da Lyra</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.utilidadeScroll}>
+        {clima && (
+          <View style={s.utilidadeCard}>
+            <View style={[s.utilidadeIconBox, { backgroundColor: '#DBEAFE' }]}>
+              <Feather name="cloud-snow" size={20} color="#1E40AF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.utilidadeTitle}>Clima Hoje ({clima.city})</Text>
+              <Text style={s.utilidadeTexto}>{clima.voice_summary}</Text>
+            </View>
+          </View>
+        )}
+        {futebol && (
+          <View style={s.utilidadeCard}>
+            <View style={[s.utilidadeIconBox, { backgroundColor: '#D1FAE5' }]}>
+              <Feather name="activity" size={20} color="#065F46" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.utilidadeTitle}>Brasileirão 2026</Text>
+              <Text style={s.utilidadeTexto}>{futebol.voice_summary}</Text>
+            </View>
+          </View>
+        )}
+        {nutricao && (
+          <View style={s.utilidadeCard}>
+            <View style={[s.utilidadeIconBox, { backgroundColor: '#FEF3C7' }]}>
+              <Feather name="heart" size={20} color="#D97706" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.utilidadeTitle}>Nutrição Geriátrica</Text>
+              <Text style={s.utilidadeTexto}>{nutricao.voice_summary}</Text>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}

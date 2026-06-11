@@ -138,4 +138,32 @@ export const desconfirmarMedicamento = async (id) => {
   return data;
 };
 
+// ── Status e Utilitários ──────────────────────────────────────────────────────
+
+export const declararAusente = async () => {
+  const { data } = await api.post('/api/status/away');
+  return data;
+};
+
+export const declararPresente = async () => {
+  const { data } = await api.post('/api/status/home');
+  return data;
+};
+
+export const buscarClima = async (cidade = '') => {
+  const params = cidade ? { city: cidade } : {};
+  const { data } = await api.get('/api/utility/weather', { params });
+  return data;
+};
+
+export const buscarFutebol = async () => {
+  const { data } = await api.get('/api/utility/football');
+  return data;
+};
+
+export const buscarNutricao = async () => {
+  const { data } = await api.get('/api/utility/nutrition');
+  return data;
+};
+
 export default api;

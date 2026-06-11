@@ -1,4 +1,5 @@
 import { WS_URL } from './api';
+import { lerToken } from './armazenamento';
 
 class LyraWebSocket {
   constructor() {
@@ -10,7 +11,7 @@ class LyraWebSocket {
     this.desistiu = false; // Controle de desconexão manual
   }
 
-  conectar(clientType = 'mobile') {
+  async conectar(clientType = 'mobile') {
     if (this.desistiu) return;
     
     // Evita múltiplos agendamentos concorrentes
@@ -20,7 +21,9 @@ class LyraWebSocket {
     }
 
     try {
-      this.ws = new WebSocket(`${WS_URL}?client_type=${clientType}`);
+      const token = await lerToken();
+      const url = token ? `${WS_URL}?client_type=${clientType}&token=${token}` : `${WS_URL}?client_type=${clientType}`;
+      this.ws = new WebSocket(url);
       this._emitir('estado_alterado', { conectado: false, status: 'conectando' });
 
       this.ws.onopen = () => {

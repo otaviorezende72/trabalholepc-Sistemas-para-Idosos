@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from backend.database import Base, engine, get_db
-from backend.routers import elder_settings, alert, medication, status as status_router, tasks, auth
+from backend.routers import elder_settings, alert, medication, status as status_router, tasks, auth, utility
 from backend.websockets.manager import manager
 from backend.models.elder_settings import ElderSettings
 
@@ -50,6 +50,7 @@ app.include_router(alert.router)
 app.include_router(medication.router)
 app.include_router(status_router.router)
 app.include_router(tasks.router)
+app.include_router(utility.router)
 
 @app.get("/")
 def read_root():
@@ -120,8 +121,12 @@ async def websocket_endpoint(
             event_type = data.get("event")
             
             # Repasse inteligente de mensagens por idoso
-            if event_type == "SOS_TRIGGERED" and client_type == "motor":
-                logging.info(f"[WebSocket] SOS recebido do motor. Enviando broadcast para celulares do idoso {elder_id}.")
+            if event_type == "SOS_TRIGGERED":
+                logging.info(f"[WebSocket] SOS recebido de '{client_type}'. Repassando a todos do idoso {elder_id}.")
+                await manager.broadcast_to_elder(elder_id, data)
+                
+            elif event_type == "SOS_LOG_UPDATE":
+                logging.info(f"[WebSocket] SOS log update recebido de '{client_type}'. Repassando a celulares do idoso {elder_id}.")
                 await manager.broadcast_to_elder(elder_id, data, "mobile")
                 
             elif event_type == "CONFIG_UPDATED" and client_type == "mobile":

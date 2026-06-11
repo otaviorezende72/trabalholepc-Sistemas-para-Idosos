@@ -325,6 +325,67 @@ class TestBackendAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], "ativo")
 
+    def test_utility_endpoints(self):
+        # 1. Test weather endpoint
+        response = self.client.get("/api/utility/weather")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["city"], "Cachoeira do Sul")
+        self.assertEqual(data["temperature"], 14.0)
+        self.assertIn("Hoje em Cachoeira do Sul o tempo está nublado", data["voice_summary"])
+
+        # 2. Test weather with custom city
+        response = self.client.get("/api/utility/weather?city=Porto Alegre")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["city"], "Porto Alegre")
+        self.assertIn("Hoje em Porto Alegre", data["voice_summary"])
+
+        # 3. Test football endpoint
+        response = self.client.get("/api/utility/football")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["last_update"], "Junho de 2026")
+        self.assertIn("O Grêmio jogou no último final de semana", data["voice_summary"])
+        self.assertEqual(len(data["matches"]), 2)
+
+        # 4. Test nutrition endpoint
+        response = self.client.get("/api/utility/nutrition")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["recipe_name"], "Sopa de mandioquinha com frango desfiado e raspas de gengibre")
+        self.assertIn("Para hoje, que tal uma sopa quentinha de mandioquinha", data["voice_summary"])
+
+    def test_settings_sleep_time_validation(self):
+        # Envia payload com sleep_start_night malformatado
+        payload = {
+            "checkin_interval_hours": 12,
+            "emergency_contact_name": "Maria Silva",
+            "emergency_contact_phone": "+55 11 99999-9999",
+            "sleep_start_night": "25:00",  # Hora inválida
+            "sleep_end_night": "07:00",
+            "sleep_start_afternoon": "13:30",
+            "sleep_end_afternoon": "15:30"
+        }
+        response = self.client.put("/settings", json=payload)
+        self.assertEqual(response.status_code, 422)
+
+        # Envia outro formato inválido
+        payload["sleep_start_night"] = "9:00"  # Falta o zero à esquerda
+        response = self.client.put("/settings", json=payload)
+        self.assertEqual(response.status_code, 422)
+
+        # Envia formato de texto
+        payload["sleep_start_night"] = "22h00"
+        response = self.client.put("/settings", json=payload)
+        self.assertEqual(response.status_code, 422)
+
+        # Envia formato válido
+        payload["sleep_start_night"] = "22:00"
+        response = self.client.put("/settings", json=payload)
+        self.assertEqual(response.status_code, 200)
+
 if __name__ == "__main__":
     unittest.main()
+
 

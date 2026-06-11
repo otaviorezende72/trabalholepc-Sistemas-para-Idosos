@@ -10,7 +10,8 @@ import { falar, pedirPermissaoMicrofone, confirmarPorVoz, negarPorVoz } from '..
 import {
   listarMedicamentos,
   criarAlerta,
-  criarMedicamento
+  criarMedicamento,
+  buscarConfiguracoes
 } from '../services/api';
 import { wsService } from '../services/websocket';
 import { encerrarSessao } from '../services/armazenamento';
@@ -24,6 +25,7 @@ export default function IdosoScreen({ navigation }) {
   const [sosAtivado, setSosAtivado] = useState(false);
   const [escutando, setEscutando] = useState(false);
   const [transcricao, setTranscricao] = useState('');
+  const [elderName, setElderName] = useState('Senhor');
   
   const pulsoSos = useRef(new Animated.Value(1)).current;
   const [modalMed, setModalMed] = useState(false);
@@ -32,6 +34,7 @@ export default function IdosoScreen({ navigation }) {
   const [horariosMed, setHorariosMed] = useState(['08:00']);
   const [diasMed, setDiasMed] = useState([]);
   const [salvandoMed, setSalvandoMed] = useState(false);
+  const [statusConexao, setStatusConexao] = useState('reconectando');
 
 
   useEffect(() => { inicializar(); return () => wsService.desconectar(); }, []);
@@ -40,14 +43,61 @@ export default function IdosoScreen({ navigation }) {
     else { pulsoSos.setValue(1); }
   }, [sosAtivado]);
 
-  const inicializar = async () => { await pedirPermissaoMicrofone(); await carregarMedicamentos(); wsService.resetar(); wsService.conectar('mobile'); wsService.on('MEDICATION_CONFIRMED', carregarMedicamentos); };
+  const inicializar = async () => {
+    await pedirPermissaoMicrofone();
+    await carregarMedicamentos();
+    try {
+      const cfg = await buscarConfiguracoes();
+      if (cfg && cfg.elder_name) {
+        setElderName(cfg.elder_name);
+      }
+    } catch (e) {
+      console.log('[IdosoScreen] Erro ao buscar configurações:', e);
+    }
+    wsService.resetar();
+    wsService.conectar('mobile');
+    wsService.on('MEDICATION_CONFIRMED', carregarMedicamentos);
+    wsService.on('estado_alterado', (estado) => {
+      setStatusConexao(estado.status);
+    });
+  };
   const carregarMedicamentos = async () => { try { setMedicamentos((await listarMedicamentos()).filter(m => m.active)); } catch {} };
 
   const handleSair = () => { Alert.alert('Sair', 'Sair do modo paciente?', [{ text: 'Cancelar' }, { text: 'Sair', onPress: async () => { await encerrarSessao(); navigation.replace('Onboarding'); } }]); };
   
-  const handleSos = () => {
-    setSosAtivado(true); Vibration.vibrate([0, 400, 200, 400]);
-    criarAlerta('SOS').then(() => falar('Sua família foi avisada. Estou aqui com você. Fique calmo.'));
+  const handleSos = async () => {
+    // Protocolo de Ajuda por Voz de Latência Ultra-baixa
+    // 1. Prioridade Absoluta de Áudio: cancela remédios e qualquer fala ativa
+    setMedAtivo(null);
+    await falar(''); // Interrompe qualquer fala em andamento imediatamente
+    
+    setSosAtivado(true);
+    Vibration.vibrate([0, 400, 200, 400]);
+
+    // 2. Dispara o evento SOS_TRIGGERED via WebSocket em background
+    if (wsService.ws && wsService.conectado) {
+      wsService.ws.send(JSON.stringify({
+        event: 'SOS_TRIGGERED',
+        data: { type: 'SOS', timestamp: new Date().toISOString() }
+      }));
+    }
+
+    // 3. Dispara a criação do alerta na API HTTP
+    try {
+      await criarAlerta('SOS');
+    } catch (err) {
+      console.log('[IdosoScreen] Erro ao criar alerta SOS via HTTP:', err);
+    }
+
+    // 4. Inicia o TTS local instantaneamente seguindo a frase exata de 3 passos
+    const textProtocol = `Seu ${elderName}, estou iniciando o protocolo de ajuda. Fique calmo e não tente se mexer. Eu já avisei a sua família e eles estão vindo. O senhor consegue falar comigo?`;
+    await falar(textProtocol);
+
+    // 5. Abre o microfone automaticamente após a fala
+    setEscutando(false);
+    setTimeout(() => {
+      alternarEscuta();
+    }, 100);
   };
 
   const handleConfirmar = async (med) => { try { await confirmarPorVoz(med.id); await carregarMedicamentos(); setMedAtivo(null); } catch { falar('Tente de novo.'); } };
@@ -77,8 +127,8 @@ export default function IdosoScreen({ navigation }) {
     } catch (err) {
       console.log("❌ ERRO:", err);
       Alert.alert(
-        "Erro ao salvar",
-        JSON.stringify(err?.response?.data || err.message)
+        "Não foi possível salvar",
+        "Ops! Tivemos uma dificuldade para registrar o medicamento. Por favor, verifique se seu aparelho está conectado à internet e tente novamente."
       );
     } finally {
       setSalvandoMed(false);
@@ -128,7 +178,12 @@ export default function IdosoScreen({ navigation }) {
         };
 
         recognition.onend = () => {
-          setEscutando(false);
+          if (sosAtivado) {
+            console.log('[STT] Loop de Resiliência: Reiniciando reconhecimento contínuo.');
+            recognition.start();
+          } else {
+            setEscutando(false);
+          }
         };
 
         recognition.start();
@@ -143,35 +198,69 @@ export default function IdosoScreen({ navigation }) {
       setTimeout(() => {
         setEscutando(false);
         if (Platform.OS === 'web') {
-          const mockText = window.prompt("Simulador de Voz Lyra (Ex: 'me ajuda eu cai' ou 'sim'):");
+          const promptMsg = sosAtivado
+            ? "SOS ATIVO - Enviar resposta de voz ao familiar (tempo real):"
+            : "Simulador de Voz Lyra (Ex: 'me ajuda eu cai' ou 'sim'):";
+          const mockText = window.prompt(promptMsg);
           if (mockText) {
             processarComandoVoz(mockText.toLowerCase());
           }
         } else {
-          Alert.alert(
-            "Comando de Voz",
-            "O que você gostaria de dizer para a Lyra?",
-            [
-              { text: "Me ajuda, eu caí!", onPress: () => processarComandoVoz("me ajuda eu cai") },
-              { text: "Já tomei o remédio", onPress: () => {
-                  if (medAtivo) {
-                    processarComandoVoz("sim");
-                  } else {
-                    Alert.alert("Aviso", "Não há lembrete de remédio ativo para confirmar.");
+          if (sosAtivado) {
+            Alert.alert(
+              "SOS Ativo",
+              "Diga algo para seu familiar:",
+              [
+                { text: "Dizer: 'Estou com dor'", onPress: () => processarComandoVoz("estou com dor") },
+                { text: "Dizer: 'Consigo falar'", onPress: () => processarComandoVoz("consigo falar") },
+                { text: "Cancelar", style: "cancel" }
+              ]
+            );
+          } else {
+            Alert.alert(
+              "Comando de Voz",
+              "O que você gostaria de dizer para a Lyra?",
+              [
+                { text: "Me ajuda, eu caí!", onPress: () => processarComandoVoz("me ajuda eu cai") },
+                { text: "Já tomei o remédio", onPress: () => {
+                    if (medAtivo) {
+                      processarComandoVoz("sim");
+                    } else {
+                      Alert.alert("Aviso", "Não há lembrete de remédio ativo para confirmar.");
+                    }
                   }
-                }
-              },
-              { text: "Cancelar", style: "cancel" }
-            ]
-          );
+                },
+                { text: "Cancelar", style: "cancel" }
+              ]
+            );
+          }
         }
       }, 3000);
     }
   };
 
   const processarComandoVoz = (texto) => {
+    if (sosAtivado) {
+      console.log('[WebSocket] Enviando SOS_LOG_UPDATE:', texto);
+      if (wsService.ws && wsService.conectado) {
+        wsService.ws.send(JSON.stringify({
+          event: 'SOS_LOG_UPDATE',
+          data: { text: texto }
+        }));
+      }
+      
+      // Se estiver no fallback de simulação, reinicia a escuta após processar
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        setTimeout(() => {
+          alternarEscuta();
+        }, 1500);
+      }
+      return;
+    }
+
     // SOS
-    if (texto.includes('ajuda') || texto.includes('cai') || texto.includes('caí') || texto.includes('socorro') || texto.includes('dor')) {
+    if (texto.includes('ajuda') || texto.includes('cai') || texto.includes('caí') || texto.includes('socorro') || texto.includes('dor') || texto.includes('me tira daqui')) {
       handleSos();
       return;
     }
@@ -205,6 +294,23 @@ export default function IdosoScreen({ navigation }) {
         <TouchableOpacity onPress={handleSair} style={s.sairBtn}>
           <Feather name="log-out" size={22} color={CORES.primaria} />
         </TouchableOpacity>
+      </View>
+
+      {/* Indicador de Status da Conexão em Tempo Real */}
+      <View style={[
+        s.statusBanner, 
+        statusConexao === 'conectado' ? s.statusBannerConectado : s.statusBannerReconectando
+      ]}>
+        <View style={[
+          s.statusPonto, 
+          statusConexao === 'conectado' ? { backgroundColor: CORES.sucesso } : { backgroundColor: CORES.alerta }
+        ]} />
+        <Text style={[
+          s.statusBannerTexto, 
+          statusConexao === 'conectado' ? { color: CORES.sucesso } : { color: '#B45309' }
+        ]}>
+          {statusConexao === 'conectado' ? 'Monitoramento Ativo' : 'Tentando Reconectar...'}
+        </Text>
       </View>
 
       {escutando && (
@@ -682,4 +788,30 @@ escutandoTexto: {
   fontSize: 14,
   fontWeight: '700',
 },
-});
+statusBanner: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingHorizontal: 12,
+  paddingVertical: 6,
+  borderRadius: 20,
+  marginTop: 8,
+  alignSelf: 'center',
+},
+statusBannerConectado: {
+  backgroundColor: CORES.sucessoClaro,
+},
+statusBannerReconectando: {
+  backgroundColor: CORES.alertaClaro,
+},
+statusPonto: {
+  width: 6,
+  height: 6,
+  borderRadius: 3,
+  marginRight: 6,
+},
+statusBannerTexto: {
+  fontSize: 12,
+  fontWeight: '600',
+},
+});

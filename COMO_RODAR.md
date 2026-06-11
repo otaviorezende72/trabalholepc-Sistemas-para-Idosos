@@ -119,11 +119,26 @@ Para validar a comunicação e o fluxo de segurança multi-tenant:
 
 ---
 
-## 🩺 Execução da Suíte de Testes Automatizados
+## 📈 Novas Funcionalidades: Utilitários e Validação de Sono
+
+### 1. Rotas Utilitárias (GET `/api/utility/*`)
+O backend expõe rotas para fornecer informações reais atualizadas para o inverno de junho de 2026:
+- `/weather`: Clima em Cachoeira do Sul (padrão) retornando temperatura, umidade, vento e resumo por voz.
+- `/football`: Resultados consolidados do Brasileirão 2026 focados na dupla Gre-Nal.
+- `/nutrition`: Sugestões culinárias seguras e balanceadas para idosos (baixo sódio, fácil digestão).
+*(Exibidas na interface do Cuidador através do widget `<CardsUtilidade />`)*.
+
+### 2. Validação Estrita das Janelas de Sono
+Para evitar falhas na contagem de inatividade, as janelas de sono enviadas pelo painel de configurações agora são validadas de forma estrita no formato **24 horas (HH:MM)** pelo backend FastAPI. Entradas inválidas retornarão erro HTTP `422 Unprocessable Entity`.
+
+---
+
+## 🧪 Execução da Suíte de Testes Automatizados
 
 Caso faça alterações no código, certifique-se de que nenhuma regra de negócio foi afetada rodando a suíte completa:
 
 ```powershell
 .venv\Scripts\python.exe -m unittest backend/test_backend.py tests/test_lyra.py
 ```
-*(Todos os 30 testes integrados e unitários devem retornar `OK`)*.
+*(Todos os 32 testes integrados e unitários devem retornar `OK`)*.
+

@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from typing import Optional
+import re
 
 class ElderSettingsBase(BaseModel):
     checkin_interval_hours: int = Field(default=12, ge=1, le=168)
@@ -16,6 +17,13 @@ class ElderSettingsBase(BaseModel):
     away_end_time: Optional[datetime] = None
     elder_name: str = Field(default="Senhor")
 
+    @field_validator('sleep_start_night', 'sleep_end_night', 'sleep_start_afternoon', 'sleep_end_afternoon')
+    @classmethod
+    def validate_time_format(cls, v: str) -> str:
+        if not re.match(r'^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$', v):
+            raise ValueError('O formato do horário de sono deve ser HH:MM (24 horas).')
+        return v
+
 class ElderSettingsUpdate(ElderSettingsBase):
     pass
 
@@ -24,3 +32,4 @@ class ElderSettingsRead(ElderSettingsBase):
 
     class Config:
         from_attributes = True
+
